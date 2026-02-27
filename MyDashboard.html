@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Summer's Teaching Dashboard</title>
+<link rel="icon" href="favicon.ico" type="image/x-icon">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="lsb-verses.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    body {
+        font-family: 'Nunito', sans-serif;
+        background: linear-gradient(135deg, #FFF5F5 0%, #FDF2F8 50%, #FFE4E6 100%);
+    }
+    .container {
+        padding: 1rem;
+        max-width: 100%;
+    }
+    .schedule-table th, .schedule-table td { border: 1px solid #F8B4C4; padding: 4px; text-align: center; font-size: 0.75rem; }
+    .bg-class { background-color: #F8B4C4; } /* Soft pink */
+    .bg-prep { background-color: #E9D5FF; } /* Lavender */
+    .bg-meeting { background-color: #FBCFE8; } /* Pink */
+    .bg-lunch { background-color: #FDE68A; } /* Soft yellow */
+    .bg-iep { background-color: #A7F3D0; } /* Mint */
+    .bg-plc { background-color: #C4B5FD; } /* Light purple */
+    .bg-planning { background-color: #FFFFFF; } /* White */
+    .current-slot {
+        outline: 4px solid #EC4899 !important;
+        outline-offset: -2px;
+        font-weight: bold;
+        position: relative;
+        z-index: 10;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out forwards;
+    }
+    .day-faded { opacity: 0.35; filter: grayscale(20%); transition: opacity 0.3s ease; }
+    .day-active { opacity: 1; transition: opacity 0.3s ease; }
+    .section-header {
+        background: linear-gradient(135deg, #F472B6 0%, #EC4899 100%);
+        color: white;
+    }
+    .section-header:hover {
+        background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%);
+    }
+    .btn-pink {
+        background: linear-gradient(135deg, #F472B6 0%, #EC4899 100%);
+        color: white;
+    }
+    .btn-pink:hover {
+        background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%);
+    }
+    .template-card {
+        background: linear-gradient(135deg, #FFF5F5 0%, #FFE4E6 100%);
+        border: 1px solid #FBCFE8;
+    }
+    .student-card {
+        background: linear-gradient(135deg, #FFF5F5 0%, #FFE4E6 100%);
+        border: 2px solid transparent;
+        transition: all 0.2s ease;
+    }
+    .student-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(236, 72, 153, 0.2);
+    }
+    .student-card.selected {
+        border-color: #EC4899;
+        box-shadow: 0 4px 16px rgba(236, 72, 153, 0.3);
+        background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%);
+    }
+    .note-day-card {
+        background: linear-gradient(135deg, #FFFFFF 0%, #FDF2F8 100%);
+        border-left: 4px solid #EC4899;
+        transition: box-shadow 0.2s ease;
+    }
+    .note-day-card:hover {
+        box-shadow: 0 2px 12px rgba(236, 72, 153, 0.15);
+    }
+    .student-initials {
+        background: linear-gradient(135deg, #F472B6 0%, #EC4899 100%);
+        color: white;
+        font-weight: 700;
+    }
+    .important-meeting-card {
+        border-left: 4px solid #EC4899;
+        background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%);
+    }
+    #timer-overlay { font-variant-numeric: tabular-nums; }
+    @media print {
+        body * { visibility: hidden; }
+        #print-student-notes, #print-student-notes * { visibility: visible; }
+        #print-student-notes { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+    }
+</style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+<div class="container bg-white/90 shadow-xl rounded-2xl p-6 md:p-8 backdrop-blur-sm">
+<!-- VERSE OF THE DAY -->
+<div id="verse-of-day" class="hidden mb-4 p-4 rounded-xl border-2 animate-fade-in" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%); border-color: #EC4899;">
+    <div class="flex justify-between items-start gap-4">
+        <div>
+            <div class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: #EC4899;">Verse of the Day — LSB</div>
+            <p id="verse-text" class="text-gray-800 italic leading-relaxed"></p>
+            <p id="verse-ref" class="text-sm font-semibold mt-2" style="color: #831843;"></p>
+        </div>
+        <button type="button" onclick="closeVerseOfDay()" class="shrink-0 text-gray-400 hover:text-gray-600 text-xl leading-none" title="Close">×</button>
+    </div>
+</div>
+
+<!-- HEADER WITH OPEN IN CURSOR -->
+<div class="flex flex-wrap justify-between items-center gap-3 mb-6 pb-4 border-b-2 border-pink-200">
+    <div class="flex items-center gap-3">
+        <h1 class="text-2xl md:text-3xl font-bold" style="color: #EC4899;">Summer's Teaching Dashboard</h1>
+        <span class="text-gray-400 text-xl md:text-2xl hidden sm:inline">|</span>
+        <span id="header-time" class="text-2xl md:text-3xl font-bold tabular-nums" style="color: #EC4899;"></span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+        <button onclick="showTimerModal()" class="text-sm font-semibold py-2 px-3 rounded-xl border-2 border-pink-200 text-pink-600 hover:bg-pink-50 transition-all" title="Set a countdown timer">⏱ Timer</button>
+        <button onclick="downloadBackup()" class="text-sm font-semibold py-2 px-3 rounded-xl border-2 border-pink-200 text-pink-600 hover:bg-pink-50 transition-all" title="Save backup to your dashboard folder">💾 Backup</button>
+        <input type="file" id="restore-file-input" accept=".json" class="hidden" onchange="restoreFromBackup(event)">
+        <button onclick="document.getElementById('restore-file-input').click()" class="text-sm font-semibold py-2 px-3 rounded-xl border-2 border-pink-200 text-pink-600 hover:bg-pink-50 transition-all" title="Restore from backup file">📂 Restore</button>
+        <button onclick="showSetupGuide()" class="text-sm text-pink-600 hover:text-pink-800 underline" title="View setup checklist">Setup guide</button>
+        <button onclick="copyDashboardPathToClipboard()" class="btn-pink font-semibold py-2 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+            Open in Cursor
+        </button>
+    </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-4 right-4 px-4 py-2 rounded-xl shadow-lg text-sm font-medium" style="background: #EC4899; color: white;">
+    Copied to clipboard!
+</div>
+
+<!-- FIRST TIME SETUP GUIDE -->
+<div id="setup-guide" class="hidden mb-6 p-5 rounded-xl border-2 animate-fade-in" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%); border-color: #EC4899;">
+    <div class="flex justify-between items-start gap-4 mb-4">
+        <h2 class="text-lg font-bold" style="color: #EC4899;">📋 First Time Setup — Before You Start</h2>
+        <button type="button" onclick="dismissSetupGuide()" class="shrink-0 text-gray-400 hover:text-gray-600 text-xl leading-none" title="Dismiss">×</button>
+    </div>
+    <p class="text-sm text-gray-600 mb-4">Make sure these are done when you first receive this dashboard:</p>
+    <ul class="space-y-2 text-sm text-gray-700 mb-4">
+        <li class="flex items-start gap-2">
+            <span class="text-pink-500 font-bold">1.</span>
+            <span><strong>Backups:</strong> Click 💾 Backup once. Move the downloaded file to the same folder as MyDashboard.html so it stays with your dashboard. Backups run automatically every 24 hours—move new ones from Downloads to the dashboard folder.</span>
+        </li>
+        <li class="flex items-start gap-2">
+            <span class="text-pink-500 font-bold">2.</span>
+            <span><strong>Open the file:</strong> Double-click MyDashboard.html to open it in your browser, or use "Open in Cursor" if you have Cursor installed.</span>
+        </li>
+        <li class="flex items-start gap-2">
+            <span class="text-pink-500 font-bold">3.</span>
+            <span><strong>Calendar:</strong> In Life Planner, enter your Gmail or Google Calendar ID and click Load Calendar.</span>
+        </li>
+        <li class="flex items-start gap-2">
+            <span class="text-pink-500 font-bold">4.</span>
+            <span><strong>Sheets:</strong> In My Google Sheets, add your sheet links with + Add Sheet. Remove any you don't need.</span>
+        </li>
+        <li class="flex items-start gap-2">
+            <span class="text-pink-500 font-bold">5.</span>
+            <span><strong>Forms:</strong> If you use forms that add rows to sheets, add them with + Add Form. Link each form to its sheet in Google Forms (Responses → Link to Sheets).</span>
+        </li>
+        <li class="flex items-start gap-2">
+            <span class="text-pink-500 font-bold">6.</span>
+            <span><strong>Groups:</strong> In Groups — Lesson Planning, add your 3–4 lesson plan groups (e.g., Reading A, Math B). Click each to use templates and plan the week.</span>
+        </li>
+        <li class="flex items-start gap-2">
+            <span class="text-pink-500 font-bold">7.</span>
+            <span><strong>Quick Notes sheet:</strong> In the Quick Notes section below, the embedded sheet uses a default. Use "Open in Cursor" to change the Sheet ID if needed.</span>
+        </li>
+    </ul>
+    <button onclick="dismissSetupGuide()" class="btn-pink text-sm font-semibold py-2 px-4 rounded-lg">Got it, I've done this</button>
+</div>
+
+<!-- QUICK LINKS -->
+<div class="flex flex-wrap items-center gap-3 mb-4">
+    <a href="https://mail.google.com" target="_blank" class="flex items-center justify-center w-11 h-11 rounded-xl transition-all hover:scale-110 hover:shadow-lg" style="background: #EA4335;" title="Gmail">
+        <img src="icons/gmail.svg" alt="Gmail" class="w-6 h-6">
+    </a>
+    <a href="https://calendar.google.com" target="_blank" class="flex items-center justify-center w-11 h-11 rounded-xl transition-all hover:scale-110 hover:shadow-lg" style="background: #4285F4;" title="Google Calendar">
+        <img src="icons/googlecalendar.svg" alt="Google Calendar" class="w-6 h-6">
+    </a>
+    <a href="https://drive.google.com" target="_blank" class="flex items-center justify-center w-11 h-11 rounded-xl transition-all hover:scale-110 hover:shadow-lg" style="background: #34A853;" title="Google Drive">
+        <img src="icons/googledrive.svg" alt="Google Drive" class="w-6 h-6">
+    </a>
+</div>
+
+<!-- EMAIL & MESSAGE TEMPLATES -->
+<div class="mb-6">
+    <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
+        <summary class="section-header flex items-center justify-between cursor-pointer px-4 py-3 list-none">
+            <span class="flex items-center space-x-2">
+                <span>Email & Message Templates</span>
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+        </summary>
+        <div class="p-4 bg-white/80 rounded-b-xl space-y-4">
+            <div class="flex justify-end">
+                <button onclick="showAddTemplateModal()" class="btn-pink text-sm font-semibold py-2 px-4 rounded-lg">
+                    + Add Template
+                </button>
+            </div>
+            <div id="template-categories" class="space-y-6"></div>
+        </div>
+    </details>
+</div>
+
+<!-- STUDENTS -->
+<div class="mb-6">
+    <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
+        <summary class="section-header flex items-center justify-between cursor-pointer px-4 py-3 list-none">
+            <span class="flex items-center space-x-2">
+                <span>Students</span>
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+        </summary>
+        <div class="p-4 bg-white/80 rounded-b-xl">
+            <!-- Add Student -->
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="new-student-name" placeholder="Enter student name..." 
+                    class="flex-1 border-2 border-pink-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 focus:border-pink-400 placeholder-gray-400"
+                    onkeypress="if(event.key==='Enter')addStudent()">
+                <button type="button" onclick="addStudent()" class="btn-pink font-semibold py-2.5 px-5 rounded-xl shadow-md hover:shadow-lg transition-all">
+                    + Add Student
+                </button>
+            </div>
+
+            <!-- Student List -->
+            <div id="students-list" class="flex flex-wrap gap-2 mb-6 min-h-[48px]">
+                <!-- Student cards rendered here -->
+            </div>
+
+            <!-- Notes Panel (shown when student selected) -->
+            <div id="student-notes-panel" class="hidden">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b-2 border-pink-100">
+                    <h3 id="selected-student-name" class="text-lg font-bold" style="color: #EC4899;"></h3>
+                    <div class="flex items-center gap-3">
+                        <button onclick="printStudentNotes()" class="btn-pink text-sm font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all" title="Print notes for meetings">🖨 Print</button>
+                        <button onclick="deleteStudentFromPanel(event)" class="text-sm text-gray-500 hover:text-red-600 transition-colors" title="Remove student">Remove student</button>
+                        <button onclick="deselectStudent()" class="text-sm text-gray-500 hover:text-pink-600 transition-colors">← Back to list</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-4 mb-4 p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-semibold text-gray-700">Points:</span>
+                        <span id="selected-student-points" class="font-bold text-lg" style="color: #EC4899;">0</span>
+                        <button type="button" onclick="adjustStudentPointsFromPanel(1)" class="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold border border-pink-200 hover:bg-pink-100 text-green-600">+</button>
+                        <button type="button" onclick="adjustStudentPointsFromPanel(-1)" class="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold border border-pink-200 hover:bg-pink-100 text-red-600">−</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-semibold text-gray-700">Goal:</label>
+                        <input type="number" id="student-goal-input" min="0" placeholder="Optional" class="w-20 text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300" onchange="saveStudentGoal()">
+                        <span class="text-xs text-gray-500">pts for reward</span>
+                    </div>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <label class="text-sm font-semibold text-gray-700 shrink-0">IEP Pro:</label>
+                        <input type="url" id="student-iep-url" placeholder="Paste IEP Pro URL..." class="flex-1 min-w-0 text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300" onchange="saveStudentIepUrl()">
+                        <a id="student-iep-link" href="#" target="_blank" class="btn-pink text-xs font-semibold py-1.5 px-3 rounded-lg shrink-0 hidden">Open</a>
+                    </div>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <label class="text-sm font-semibold text-gray-700 shrink-0">Parent email:</label>
+                        <input type="email" id="student-parent-email" placeholder="parent@email.com" class="flex-1 min-w-0 text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300" onchange="saveStudentParentEmail()">
+                    </div>
+                </div>
+                <div class="mb-4 p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Goals</label>
+                    <textarea id="student-goals" placeholder="IEP goals, learning objectives, etc. (one per line)" rows="3" class="w-full text-sm border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300 resize-y"></textarea>
+                    <div class="flex flex-wrap items-end gap-2 mt-3">
+                        <div class="flex-1 min-w-[140px]">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Progress date</label>
+                            <input type="date" id="progress-date" class="w-full border-2 border-pink-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-pink-300">
+                        </div>
+                        <div class="flex-[2] min-w-[160px]">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Progress note</label>
+                            <input type="text" id="progress-content" placeholder="Progress toward goals..." class="w-full border-2 border-pink-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-pink-300" onkeypress="if(event.key==='Enter')addStudentProgress()">
+                        </div>
+                        <button onclick="addStudentProgress()" class="btn-pink text-sm font-semibold py-2 px-4 rounded-lg shrink-0">+ Add progress</button>
+                    </div>
+                    <div id="student-progress-list" class="mt-3 space-y-2">
+                        <!-- Progress entries rendered here -->
+                    </div>
+                </div>
+
+                <!-- Add Note for Date -->
+                <div class="flex flex-wrap items-end gap-2 mb-6 p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Date</label>
+                        <input type="date" id="note-date" class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+                    </div>
+                    <div class="flex-[2] min-w-[200px]">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Note</label>
+                        <textarea id="note-content" placeholder="Add a note for this day..." rows="2" 
+                            class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300 resize-none"></textarea>
+                    </div>
+                    <button onclick="saveStudentNote()" class="btn-pink font-semibold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg transition-all shrink-0">
+                        Save Note
+                    </button>
+                </div>
+
+                <!-- Notes by Day -->
+                <div class="space-y-4">
+                    <h4 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Notes by Day</h4>
+                    <div id="student-notes-list" class="space-y-3">
+                        <!-- Day cards rendered here -->
+                    </div>
+                    <div id="student-notes-empty" class="hidden text-center py-8 text-gray-500">
+                        <p class="text-4xl mb-2">📝</p>
+                        <p>No notes yet. Add a note above to get started!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty state when no student selected -->
+            <div id="students-empty-hint" class="text-center py-12 text-gray-500">
+                <p class="text-5xl mb-3">👩‍🎓</p>
+                <p class="font-medium text-gray-600">Add a student above, then click their name to add notes.</p>
+                <p class="text-sm mt-1">Notes are organized by day so you can track progress over time.</p>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- GROUPS (Lesson Planning) -->
+<div class="mb-6">
+    <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
+        <summary class="section-header flex items-center justify-between cursor-pointer px-4 py-3 list-none">
+            <span class="flex items-center space-x-2">
+                <span>Groups — Lesson Planning</span>
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+        </summary>
+        <div class="p-4 bg-white/80 rounded-b-xl">
+            <!-- Add Group -->
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="new-group-name" placeholder="Enter group name (e.g., Reading Group A)..." 
+                    class="flex-1 border-2 border-pink-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 focus:border-pink-400 placeholder-gray-400"
+                    onkeypress="if(event.key==='Enter')addGroup()">
+                <button type="button" onclick="addGroup()" class="btn-pink font-semibold py-2.5 px-5 rounded-xl shadow-md hover:shadow-lg transition-all">
+                    + Add Group
+                </button>
+            </div>
+
+            <!-- Group List -->
+            <div id="groups-list" class="flex flex-wrap gap-2 mb-6 min-h-[48px]">
+                <!-- Group cards rendered here -->
+            </div>
+
+            <!-- Group Lesson Plan Panel (shown when group selected) -->
+            <div id="group-lesson-panel" class="hidden">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b-2 border-pink-100">
+                    <h3 id="selected-group-name" class="text-lg font-bold" style="color: #EC4899;"></h3>
+                    <div class="flex items-center gap-3">
+                        <button onclick="deleteGroupFromPanel(event)" class="text-sm text-gray-500 hover:text-red-600 transition-colors" title="Remove group">Remove group</button>
+                        <button onclick="deselectGroup()" class="text-sm text-gray-500 hover:text-pink-600 transition-colors">← Back to list</button>
+                    </div>
+                </div>
+
+                <!-- Lesson Plan Templates -->
+                <div class="mb-6 p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
+                    <h4 class="font-semibold text-gray-800 mb-3" style="color: #EC4899;">Lesson Plan Templates</h4>
+                    <p class="text-xs text-gray-500 mb-3">Copy a template to paste into your lesson plan doc or sheet.</p>
+                    <div id="group-templates-list" class="space-y-2">
+                        <!-- Templates rendered here -->
+                    </div>
+                </div>
+
+                <!-- This Week's Plan -->
+                <div class="p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
+                    <h4 class="font-semibold text-gray-800 mb-3" style="color: #EC4899;">This Week's Plan</h4>
+                    <p class="text-xs text-gray-500 mb-3">Quick draft of what you're teaching each day.</p>
+                    <div id="group-week-plan" class="space-y-3">
+                        <div><label class="block text-xs font-semibold text-gray-600 mb-1">Monday</label><textarea id="group-plan-mon" rows="2" class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300 resize-none" placeholder="e.g., Main idea & key details"></textarea></div>
+                        <div><label class="block text-xs font-semibold text-gray-600 mb-1">Tuesday</label><textarea id="group-plan-tue" rows="2" class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300 resize-none" placeholder="e.g., Main idea & key details"></textarea></div>
+                        <div><label class="block text-xs font-semibold text-gray-600 mb-1">Wednesday</label><textarea id="group-plan-wed" rows="2" class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300 resize-none"></textarea></div>
+                        <div><label class="block text-xs font-semibold text-gray-600 mb-1">Thursday</label><textarea id="group-plan-thu" rows="2" class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300 resize-none"></textarea></div>
+                        <div><label class="block text-xs font-semibold text-gray-600 mb-1">Friday</label><textarea id="group-plan-fri" rows="2" class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300 resize-none"></textarea></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty state when no group selected -->
+            <div id="groups-empty-hint" class="text-center py-12 text-gray-500">
+                <p class="text-5xl mb-3">📚</p>
+                <p class="font-medium text-gray-600">Add your groups above (e.g., Reading A, Math B), then click one to plan lessons.</p>
+                <p class="text-sm mt-1">Each group gets templates and a weekly plan draft.</p>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- LIFE PLANNER -->
+<div class="flex flex-col space-y-6 mb-8">
+    <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
+        <summary class="section-header flex items-center justify-between cursor-pointer px-4 py-3 list-none">
+            <span class="flex items-center space-x-2">
+                <span>Life Planner</span>
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+        </summary>
+        <div class="p-4 bg-white/80 rounded-b-xl space-y-6">
+            <!-- Google Calendar + Important Meetings Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div class="lg:col-span-2 bg-white rounded-xl overflow-hidden shadow-md">
+                    <div class="p-3 border-b border-pink-100">
+                        <div class="flex flex-wrap items-center gap-2 mb-1">
+                            <h3 class="font-bold text-sm" style="color: #EC4899;">Google Calendar</h3>
+                            <input type="text" id="calendar-id-input" placeholder="Your Gmail or calendar ID" class="flex-1 min-w-[180px] text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300">
+                            <button type="button" onclick="applyCalendarId()" class="btn-pink text-xs font-semibold py-1.5 px-3 rounded-lg">Load Calendar</button>
+                        </div>
+                        <p class="text-xs text-gray-500">Find your ID: Google Calendar → Settings (gear) → your calendar → Integrate calendar → Copy "Calendar ID". Or use your Gmail address.</p>
+                    </div>
+                    <div class="rounded-b-xl overflow-hidden" style="height: 400px;">
+                        <iframe id="google-calendar-embed" class="w-full h-full border-0" frameborder="0" scrolling="no"></iframe>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-md">
+                    <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2" style="color: #EC4899;">
+                        <span>⭐</span> Important Meetings
+                    </h3>
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="imp-meeting-title" placeholder="Meeting name" class="flex-1 text-sm border border-pink-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-pink-300">
+                        <input type="date" id="imp-meeting-date" class="text-sm border border-pink-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-pink-300">
+                        <input type="time" id="imp-meeting-time" class="text-sm border border-pink-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-pink-300">
+                    </div>
+                    <button type="button" onclick="addImportantMeeting()" class="btn-pink text-sm font-semibold py-1.5 px-3 rounded-lg w-full mb-3">+ Add</button>
+                    <div id="important-meetings-list" class="space-y-2 max-h-[320px] overflow-y-auto"></div>
+                    <div id="important-meetings-empty" class="hidden text-center py-6 text-gray-500 text-sm">No important meetings yet.</div>
+                </div>
+            </div>
+
+            <!-- Focus & To-Do Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Today's Focus -->
+            <div class="space-y-4">
+                <div class="bg-white rounded-xl p-4 shadow-md">
+                    <h3 class="font-bold text-gray-800 mb-2" style="color: #EC4899;">Today's Top 3</h3>
+                    <input type="text" id="focus-1" placeholder="1. " class="w-full text-sm border border-pink-200 rounded-lg px-2 py-1 mb-1 focus:ring-2 focus:ring-pink-300">
+                    <input type="text" id="focus-2" placeholder="2. " class="w-full text-sm border border-pink-200 rounded-lg px-2 py-1 mb-1 focus:ring-2 focus:ring-pink-300">
+                    <input type="text" id="focus-3" placeholder="3. " class="w-full text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300">
+                </div>
+            </div>
+
+            <!-- To-Do -->
+            <div class="bg-white rounded-xl p-4 shadow-md">
+                <h3 class="font-bold text-gray-800 mb-2" style="color: #EC4899;">To-Do</h3>
+                <div id="todo-list" class="space-y-2"></div>
+                <div class="flex gap-2 mt-2">
+                    <input type="text" id="todo-input" placeholder="Add task..." class="flex-1 text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300">
+                    <button onclick="addTodo()" class="btn-pink text-sm font-semibold py-1 px-3 rounded-lg">Add</button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- GOOGLE SHEETS HUB -->
+<div class="mb-6">
+    <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
+        <summary class="section-header flex items-center justify-between cursor-pointer px-4 py-3 list-none">
+            <span class="flex items-center space-x-2">
+                <span>My Google Sheets</span>
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+        </summary>
+        <div class="p-4 bg-white/80 rounded-b-xl">
+            <!-- Forms Section -->
+            <div class="mb-6 p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
+                <h4 class="font-semibold text-gray-800 mb-3" style="color: #EC4899;">Quick Add Forms</h4>
+                <p class="text-xs text-gray-500 mb-3">Forms add rows to your linked sheet when submitted. Link in Google Forms: Responses → Link to Sheets.</p>
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                    <button type="button" onclick="showAddFormModal()" class="btn-pink text-sm font-semibold py-2 px-4 rounded-lg">+ Add Form</button>
+                </div>
+                <div id="forms-list" class="flex flex-wrap gap-2 mb-4">
+                    <!-- Form buttons rendered here -->
+                </div>
+                <div id="forms-embeds" class="space-y-4">
+                    <!-- Open form iframes rendered here -->
+                </div>
+            </div>
+            <!-- Sheets Section -->
+            <h4 class="font-semibold text-gray-800 mb-3" style="color: #EC4899;">Sheets</h4>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button type="button" onclick="showAddSheetModal()" class="btn-pink text-sm font-semibold py-2 px-4 rounded-lg">+ Add Sheet</button>
+                <a href="https://docs.google.com/spreadsheets/u/0/create" target="_blank"
+                    class="text-sm font-semibold py-2 px-4 rounded-lg border-2 border-pink-300 text-pink-600 hover:bg-pink-50 transition-colors">+ Create New Sheet</a>
+                <a href="https://docs.google.com/document/u/0/create" target="_blank"
+                    class="text-sm font-semibold py-2 px-4 rounded-lg border-2 border-pink-300 text-pink-600 hover:bg-pink-50 transition-colors">+ Create New Doc</a>
+            </div>
+            <div id="sheets-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <!-- Sheet cards rendered here -->
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- Add Sheet Modal -->
+<div id="add-sheet-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onclick="if(event.target===this)closeAddSheetModal()">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 border-t-4 animate-fade-in" style="border-color: #EC4899;" onclick="event.stopPropagation()">
+        <h2 class="text-xl font-bold mb-4" style="color: #EC4899;">Add Sheet</h2>
+        <div class="space-y-3">
+            <input type="text" id="new-sheet-title" placeholder="Sheet name (e.g., IEP Tracker)" class="w-full border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+            <input type="text" id="new-sheet-url" placeholder="Paste Google Sheet URL" class="w-full border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+            <input type="text" id="new-sheet-desc" placeholder="Short description (optional)" class="w-full border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="addSheet()" class="btn-pink font-semibold py-2 px-4 rounded-lg">Add</button>
+            <button onclick="closeAddSheetModal()" class="px-4 py-2 rounded-lg border border-pink-200 text-gray-600 hover:bg-gray-50">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Form Modal -->
+<div id="add-form-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onclick="if(event.target===this)closeAddFormModal()">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 border-t-4 animate-fade-in" style="border-color: #EC4899;" onclick="event.stopPropagation()">
+        <h2 class="text-xl font-bold mb-4" style="color: #EC4899;">Add Form</h2>
+        <div class="space-y-3">
+            <input type="text" id="new-form-title" placeholder="Form name (e.g., Quick Note)" class="w-full border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+            <input type="text" id="new-form-url" placeholder="Paste Google Form URL or Form ID" class="w-full border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="addForm()" class="btn-pink font-semibold py-2 px-4 rounded-lg">Add</button>
+            <button onclick="closeAddFormModal()" class="px-4 py-2 rounded-lg border border-pink-200 text-gray-600 hover:bg-gray-50">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- WEEKLY SCHEDULE -->
+<div class="mb-6">
+    <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
+        <summary class="section-header flex items-center justify-between cursor-pointer px-4 py-3 list-none">
+            <span class="flex items-center space-x-2">
+                <span>Weekly Schedule</span>
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+        </summary>
+        <div class="p-4 bg-white/80 rounded-b-xl">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                    Weekly Schedule <span id="alert-status" class="ml-3 text-xs font-normal text-pink-600"></span>
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button onclick="showScheduleModal('Test Run', 'This is your notification sound!')" class="text-xs text-pink-500 hover:text-pink-700 underline">
+                        Test Notification
+                    </button>
+                    <button onclick="toggleFading()" id="fade-toggle-btn" class="text-xs py-1 px-2 rounded transition-colors" style="background: #FBCFE8; color: #831843;">
+                        Toggle Day Fading: ON
+                    </button>
+                </div>
+            </div>
+            <div id="now-display" class="px-3 py-1 rounded-full text-sm font-bold shadow-sm mb-2 inline-block" style="background: #EC4899; color: white;">
+                NOW: Loading...
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse schedule-table">
+                    <thead>
+                        <tr style="background: #FBCFE8;">
+                            <th style="width: 80px;">Time</th>
+                            <th id="header-0">Monday</th>
+                            <th id="header-1">Tuesday</th>
+                            <th id="header-2">Wednesday</th>
+                            <th id="header-3">Thursday</th>
+                            <th id="header-4">Friday</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </details>
+</div>
+
+<!-- QUICK NOTES (Embedded Sheet) -->
+<div class="mb-6">
+    <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
+        <summary class="section-header flex items-center justify-between cursor-pointer px-4 py-3 list-none">
+            <span class="flex items-center space-x-2">
+                <span>Quick Notes</span>
+            </span>
+            <span class="text-xs transition-transform duration-200 group-open:rotate-180">▼</span>
+        </summary>
+        <div class="p-4 bg-white/80 rounded-b-xl">
+            <div class="rounded-lg overflow-hidden shadow-md" style="height: 700px;">
+                <iframe class="w-full h-full border-none"
+                    src="https://docs.google.com/spreadsheets/d/1ja1iFHQqfzeo3CZFc2-N7YSTKlTySAtuiaX32g3VXwI/edit?gid=0#gid=0&rm=minimal&single=true&widget=true&chrome=false"
+                    allowfullscreen></iframe>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Your Quick Notes sheet is embedded above. Use "Open in Cursor" to change which sheet is displayed.</p>
+        </div>
+    </details>
+</div>
+</div>
+
+<!-- ADD TEMPLATE MODAL -->
+<div id="add-template-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4 border-t-4 animate-fade-in" style="border-color: #EC4899;">
+        <h2 id="template-modal-title" class="text-xl font-bold text-gray-800 mb-4" style="color: #EC4899;">Add New Template</h2>
+        <div class="space-y-3">
+            <input type="text" id="new-template-title" placeholder="Template title (e.g., IEP Meeting Reminder)" class="w-full border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+            <select id="new-template-category" class="w-full border border-pink-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-300">
+                <option value="parent">Parent Communication</option>
+                <option value="admin">Admin / Staff</option>
+                <option value="iep">IEP / Documentation</option>
+                <option value="general">General / Other</option>
+            </select>
+            <textarea id="new-template-content" placeholder="Paste your message here. Use [Student Name], [Date], [Teacher Name] as placeholders." class="w-full border border-pink-200 rounded-lg px-3 py-2 h-32 focus:ring-2 focus:ring-pink-300"></textarea>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="closeAddTemplateModal()" class="flex-1 py-2 px-4 rounded-lg font-semibold" style="background: #F3F4F6; color: #374151;">Cancel</button>
+            <button id="template-modal-save-btn" onclick="saveTemplate()" class="flex-1 btn-pink py-2 px-4 rounded-lg font-semibold">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- SOUNDS -->
+<audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
+<audio id="points-add-sound" src="https://assets.mixkit.co/active_storage/sfx/937/937-preview.mp3" preload="auto"></audio>
+<audio id="points-remove-sound" src="https://assets.mixkit.co/active_storage/sfx/2576/2576-preview.mp3" preload="auto"></audio>
+<!-- Timer Modal -->
+<div id="timer-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 border-t-4 animate-fade-in" style="border-color: #EC4899;">
+        <h2 class="text-xl font-bold mb-4" style="color: #EC4899;">Set Timer</h2>
+        <div class="flex flex-wrap gap-2 mb-4">
+            <button type="button" onclick="setTimerMinutes(1)" class="py-2 px-4 rounded-lg border-2 border-pink-200 hover:bg-pink-50 font-semibold">1 min</button>
+            <button type="button" onclick="setTimerMinutes(5)" class="py-2 px-4 rounded-lg border-2 border-pink-200 hover:bg-pink-50 font-semibold">5 min</button>
+            <button type="button" onclick="setTimerMinutes(10)" class="py-2 px-4 rounded-lg border-2 border-pink-200 hover:bg-pink-50 font-semibold">10 min</button>
+            <button type="button" onclick="setTimerMinutes(15)" class="py-2 px-4 rounded-lg border-2 border-pink-200 hover:bg-pink-50 font-semibold">15 min</button>
+        </div>
+        <div class="flex items-center gap-2 mb-4">
+            <input type="number" id="timer-minutes-input" min="1" max="120" value="5" class="w-20 text-center border-2 border-pink-200 rounded-lg px-2 py-2 text-lg font-bold">
+            <span class="font-semibold text-gray-600">minutes</span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="startTimer()" class="btn-pink font-semibold py-2 px-6 rounded-lg flex-1">Start</button>
+            <button onclick="closeTimerModal()" class="px-4 py-2 rounded-lg border border-pink-200 text-gray-600 hover:bg-gray-50">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Timer Full-Screen Overlay -->
+<div id="timer-overlay" class="hidden fixed inset-0 z-[200] flex flex-col items-center justify-center bg-gradient-to-br from-pink-100 to-pink-200">
+    <div id="timer-countdown" class="text-8xl md:text-9xl font-bold" style="color: #EC4899;">5:00</div>
+    <p id="timer-label" class="text-xl text-gray-600 mt-2">minutes remaining</p>
+    <button id="timer-cancel-btn" onclick="cancelTimer()" class="mt-8 px-6 py-3 rounded-xl border-2 border-pink-300 text-pink-700 font-semibold hover:bg-pink-100 transition-colors">Cancel</button>
+</div>
+
+<!-- Print Container (hidden, used for printing) -->
+<div id="print-student-notes" class="hidden p-8"></div>
+
+<div id="schedule-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-4 mx-4 animate-fade-in border-t-4" style="border-color: #EC4899;">
+        <div class="text-3xl">🔔</div>
+        <h2 id="modal-title" class="text-xl font-bold text-gray-800">Schedule Update</h2>
+        <p id="modal-text" class="text-gray-600 font-medium"></p>
+        <div class="flex space-x-3 justify-center">
+            <button onclick="snoozeScheduleModal()" class="py-2 px-4 rounded-lg font-bold transition-all" style="background: #FBCFE8; color: #831843;">Snooze (5m)</button>
+            <button onclick="closeScheduleModal()" class="btn-pink py-2 px-6 rounded-lg font-bold">Got it!</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== STORAGE KEYS ==========
+const STORAGE_TEMPLATES = 'dashboard_email_templates';
+const STORAGE_FOCUS = 'dashboard_today_focus';
+const STORAGE_TODOS = 'dashboard_todos';
+const STORAGE_STUDENTS = 'dashboard_students';
+const STORAGE_STUDENT_NOTES = 'dashboard_student_notes';
+const STORAGE_STUDENT_PROGRESS = 'dashboard_student_progress';
+const STORAGE_CALENDAR_ID = 'dashboard_calendar_id';
+const STORAGE_SHEETS = 'dashboard_sheets';
+const STORAGE_FORMS = 'dashboard_forms';
+const STORAGE_IMPORTANT_MEETINGS = 'dashboard_important_meetings';
+const DEFAULT_SHEETS = [
+    { id: 's1', title: 'IEP Tracker', desc: 'Track IEP meetings & due dates', url: 'https://docs.google.com/spreadsheets/d/1ja1iFHQqfzeo3CZFc2-N7YSTKlTySAtuiaX32g3VXwI/edit' },
+    { id: 's2', title: 'Student Data', desc: 'Student info & progress', url: 'https://docs.google.com/spreadsheets/d/1ja1iFHQqfzeo3CZFc2-N7YSTKlTySAtuiaX32g3VXwI/edit' },
+    { id: 's3', title: 'Lesson Plans', desc: 'Weekly lesson planning', url: 'https://docs.google.com/spreadsheets/d/1ja1iFHQqfzeo3CZFc2-N7YSTKlTySAtuiaX32g3VXwI/edit' },
+    { id: 's4', title: 'Quick Notes', desc: 'Daily notes & reminders', url: 'https://docs.google.com/spreadsheets/d/1ja1iFHQqfzeo3CZFc2-N7YSTKlTySAtuiaX32g3VXwI/edit' }
+];
+const STORAGE_VERSE_CLOSED_DATE = 'dashboard_verse_closed_date';
+const STORAGE_LAST_BACKUP = 'dashboard_last_backup';
+const STORAGE_SETUP_SEEN = 'dashboard_setup_seen';
+const STORAGE_GROUPS = 'dashboard_groups';
+const STORAGE_GROUP_PLANS = 'dashboard_group_plans';
+const LESSON_PLAN_TEMPLATES = [
+    { id: 'lp1', title: 'Resource Room Lesson Plan', content: 'Group: [Group Name]\n\nObjective:\n• \n\nMaterials:\n• \n\nActivities:\n1. \n2. \n3. \n\nAccommodations:\n• \n\nAssessment:\n• \n\nIEP Goals Addressed:\n• ' },
+    { id: 'lp2', title: 'Small Group Lesson Plan', content: 'Group: [Group Name]\nDate: [Date]\n\nFocus:\n• \n\nWhat we did:\n• \n\nNext steps:\n• ' },
+    { id: 'lp3', title: 'IEP Goal-Focused Lesson Note', content: 'Group: [Group Name]\nDate: [Date]\n\nIEP Goal Addressed:\n• \n\nActivity:\n• \n\nProgress/Notes:\n• \n\nNext session:\n• ' }
+];
+
+// ========== STARTER TEMPLATES ==========
+const STARTER_TEMPLATES = [
+    { id: 't1', title: 'IEP Meeting Reminder', category: 'parent', content: 'Hi [Parent Name],\n\nThis is a friendly reminder that we have an IEP meeting scheduled for [Student Name] on [Date] at [Time]. The meeting will be held in [Location]. Please let me know if you need to reschedule or have any questions.\n\nBest,\n[Teacher Name]' },
+    { id: 't2', title: 'Progress Update Request', category: 'parent', content: 'Hi [Parent Name],\n\nI wanted to touch base about [Student Name]\'s progress. Could we schedule a quick call or meeting to discuss how things are going? I\'m available [your availability].\n\nThank you,\n[Teacher Name]' },
+    { id: 't3', title: 'Schedule Change Notification', category: 'admin', content: 'Hi,\n\nI wanted to let you know that [Student Name] will have a schedule change effective [Date]. [Brief description of change]. Please update records accordingly.\n\nThanks,\n[Teacher Name]' },
+    { id: 't4', title: 'Sub Plans Summary', category: 'admin', content: 'Sub Plans for [Date]\n\n[Teacher Name] - Resource Room\n\nSchedule:\n[Your schedule]\n\nKey students & notes:\n[Add notes]\n\nEmergency info: [Location of sub folder, etc.]' },
+    { id: 't5', title: 'Documentation Follow-up', category: 'iep', content: 'Hi,\n\nFollowing up on the IEP documentation for [Student Name]. I have completed [specific items]. Please let me know if you need anything else or have questions.\n\n[Teacher Name]' }
+];
+
+// ========== TEMPLATE FUNCTIONS ==========
+function getTemplates() {
+    try {
+        const stored = localStorage.getItem(STORAGE_TEMPLATES);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {}
+    return [...STARTER_TEMPLATES];
+}
+
+function saveTemplates(templates) {
+    localStorage.setItem(STORAGE_TEMPLATES, JSON.stringify(templates));
+    renderTemplates();
+}
+
+function renderTemplates() {
+    const templates = getTemplates();
+    const categories = { parent: 'Parent Communication', admin: 'Admin / Staff', iep: 'IEP / Documentation', general: 'General / Other' };
+    const container = document.getElementById('template-categories');
+    container.innerHTML = '';
+
+    for (const [key, label] of Object.entries(categories)) {
+        const items = templates.filter(t => t.category === key);
+        if (items.length === 0) continue;
+
+        const section = document.createElement('div');
+        section.innerHTML = `<h4 class="font-semibold text-gray-700 mb-2" style="color: #EC4899;">${label}</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-2" id="templates-${key}"></div>`;
+        container.appendChild(section);
+
+        const grid = document.getElementById(`templates-${key}`);
+        items.forEach(t => {
+            const preview = (t.content || '').replace(/\n/g, ' ').slice(0, 50) + (t.content.length > 50 ? '...' : '');
+            const card = document.createElement('div');
+            card.className = 'template-card rounded-lg p-3 flex justify-between items-start gap-2';
+            card.innerHTML = `
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-gray-800 text-sm">${escapeHtml(t.title)}</div>
+                    <div class="text-xs text-gray-500 truncate">${escapeHtml(preview)}</div>
+                </div>
+                <div class="flex gap-1 shrink-0 items-center">
+                    <button type="button" id="copy-btn-${t.id}" onclick="copyTemplate('${t.id}', this)" class="copy-icon-btn w-12 h-12 flex items-center justify-center rounded-xl btn-pink text-2xl transition-all duration-300 hover:scale-105" title="Copy">📋</button>
+                    <button onclick="showEditTemplateModal('${t.id}')" class="text-xs py-1 px-2 rounded" style="background: #E9D5FF; color: #5B21B6;" title="Edit">Edit</button>
+                    <button onclick="deleteTemplate('${t.id}')" class="text-gray-400 hover:text-red-500 text-xs py-1 px-1">✕</button>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+}
+
+function escapeHtml(s) {
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+}
+
+// ========== STUDENTS ==========
+let selectedStudentId = null;
+
+function getStudents() {
+    try {
+        const stored = localStorage.getItem(STORAGE_STUDENTS);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) { return []; }
+}
+
+function getStudentNotes() {
+    try {
+        const stored = localStorage.getItem(STORAGE_STUDENT_NOTES);
+        return stored ? JSON.parse(stored) : {};
+    } catch (e) { return {}; }
+}
+
+function saveStudents(students) {
+    localStorage.setItem(STORAGE_STUDENTS, JSON.stringify(students));
+    renderStudents();
+}
+
+function saveStudentNotes(notes) {
+    localStorage.setItem(STORAGE_STUDENT_NOTES, JSON.stringify(notes));
+    if (selectedStudentId) renderStudentNotes();
+}
+
+function getStudentProgress() {
+    try {
+        const stored = localStorage.getItem(STORAGE_STUDENT_PROGRESS);
+        return stored ? JSON.parse(stored) : {};
+    } catch (e) { return {}; }
+}
+
+function saveStudentProgress(progress) {
+    localStorage.setItem(STORAGE_STUDENT_PROGRESS, JSON.stringify(progress));
+    if (selectedStudentId) renderStudentProgress();
+}
+
+function addStudent() {
+    const input = document.getElementById('new-student-name');
+    const name = input.value.trim();
+    if (!name) {
+        showToast('Please enter a student name.');
+        input.focus();
+        return;
+    }
+    const students = getStudents();
+    if (students.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+        showToast('Student already exists.');
+        return;
+    }
+    const id = 's' + Date.now();
+    students.push({ id, name, points: 0, goal: null, iepUrl: null, parentEmail: null, goals: null });
+    saveStudents(students);
+    input.value = '';
+    showToast('Student added!');
+}
+
+function adjustStudentPoints(id, delta) {
+    const students = getStudents();
+    const s = students.find(x => x.id === id);
+    if (!s) return;
+    const pts = (s.points ?? 0) + delta;
+    s.points = Math.max(0, pts);
+    saveStudents(students);
+    if (delta > 0) {
+        document.getElementById('points-add-sound').play().catch(() => {});
+    } else {
+        document.getElementById('points-remove-sound').play().catch(() => {});
+    }
+}
+
+function deleteStudentFromPanel(e) {
+    if (!selectedStudentId) return;
+    deleteStudent(selectedStudentId, e || { stopPropagation: () => {} });
+}
+
+function deleteStudent(id, e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (!confirm('Remove this student and all their notes?')) return;
+    const students = getStudents().filter(s => s.id !== id);
+    const notes = getStudentNotes();
+    const progress = getStudentProgress();
+    delete notes[id];
+    delete progress[id];
+    saveStudents(students);
+    saveStudentNotes(notes);
+    saveStudentProgress(progress);
+    if (selectedStudentId === id) deselectStudent();
+    showToast('Student removed.');
+}
+
+function selectStudent(id) {
+    if (selectedStudentId === id) {
+        deselectStudent();
+        return;
+    }
+    selectedStudentId = id;
+    document.getElementById('students-empty-hint').classList.add('hidden');
+    document.getElementById('student-notes-panel').classList.remove('hidden');
+    const student = getStudents().find(s => s.id === id);
+    document.getElementById('selected-student-name').textContent = student ? student.name : '';
+    document.getElementById('selected-student-points').textContent = student ? (student.points ?? 0) : 0;
+    document.getElementById('student-goal-input').value = student && student.goal != null ? student.goal : '';
+    document.getElementById('student-iep-url').value = student && student.iepUrl ? student.iepUrl : '';
+    document.getElementById('student-parent-email').value = student && student.parentEmail ? student.parentEmail : '';
+    document.getElementById('student-goals').value = student && student.goals ? student.goals : '';
+    document.getElementById('progress-date').value = new Date().toISOString().slice(0, 10);
+    updateStudentIepLink();
+    renderStudentProgress();
+    document.getElementById('note-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('note-content').value = '';
+    renderStudents();
+    renderStudentNotes();
+    renderStudentProgress();
+}
+
+function adjustStudentPointsFromPanel(delta) {
+    if (!selectedStudentId) return;
+    adjustStudentPoints(selectedStudentId, delta);
+    const student = getStudents().find(s => s.id === selectedStudentId);
+    document.getElementById('selected-student-points').textContent = student ? (student.points ?? 0) : 0;
+}
+
+function saveStudentIepUrl() {
+    if (!selectedStudentId) return;
+    const input = document.getElementById('student-iep-url');
+    const url = input.value.trim() || null;
+    const students = getStudents();
+    const s = students.find(x => x.id === selectedStudentId);
+    if (s) {
+        s.iepUrl = url;
+        saveStudents(students);
+        updateStudentIepLink();
+        showToast(url ? 'IEP Pro link saved.' : 'IEP Pro link cleared.');
+    }
+}
+
+function saveStudentGoals() {
+    if (!selectedStudentId) return;
+    const input = document.getElementById('student-goals');
+    const goals = input.value.trim() || null;
+    const students = getStudents();
+    const s = students.find(x => x.id === selectedStudentId);
+    if (s) {
+        s.goals = goals;
+        saveStudents(students);
+        showToast('Goals saved.');
+    }
+}
+
+document.getElementById('student-goals')?.addEventListener('blur', saveStudentGoals);
+
+let editingProgressDate = null;
+
+function addStudentProgress() {
+    if (!selectedStudentId) return;
+    const dateInput = document.getElementById('progress-date').value;
+    const content = document.getElementById('progress-content').value.trim();
+    if (!dateInput || !content) {
+        showToast('Enter a date and progress note.');
+        return;
+    }
+    const progress = getStudentProgress();
+    if (!progress[selectedStudentId]) progress[selectedStudentId] = {};
+    const existing = progress[selectedStudentId][dateInput] || '';
+    if (editingProgressDate === dateInput) {
+        progress[selectedStudentId][dateInput] = content;
+    } else {
+        progress[selectedStudentId][dateInput] = existing ? existing + '\n\n---\n\n' + content : content;
+    }
+    editingProgressDate = null;
+    saveStudentProgress(progress);
+    document.getElementById('progress-content').value = '';
+    document.getElementById('progress-date').value = new Date().toISOString().slice(0, 10);
+    renderStudentProgress();
+    showToast('Progress added!');
+}
+
+function copyProgressToClipboard(dateStr) {
+    if (!selectedStudentId) return;
+    const progress = getStudentProgress()[selectedStudentId] || {};
+    const content = progress[dateStr];
+    if (!content) return;
+    const student = getStudents().find(s => s.id === selectedStudentId);
+    const label = formatDateLabel(dateStr);
+    const text = `${student?.name || 'Student'} — Progress: ${label}\n\n${content}`;
+    navigator.clipboard.writeText(text).then(() => showToast('Copied!')).catch(() => showToast('Copy failed.'));
+}
+
+function editProgressForDate(dateStr) {
+    editingProgressDate = dateStr;
+    const progress = getStudentProgress()[selectedStudentId] || {};
+    document.getElementById('progress-date').value = dateStr;
+    document.getElementById('progress-content').value = progress[dateStr] || '';
+    document.getElementById('progress-content').focus();
+}
+
+function deleteProgressForDate(dateStr) {
+    if (!selectedStudentId) return;
+    if (!confirm('Delete this progress entry?')) return;
+    const progress = getStudentProgress();
+    if (progress[selectedStudentId]) {
+        delete progress[selectedStudentId][dateStr];
+        saveStudentProgress(progress);
+        renderStudentProgress();
+        showToast('Progress deleted.');
+    }
+}
+
+function renderStudentProgress() {
+    if (!selectedStudentId) return;
+    const progress = getStudentProgress()[selectedStudentId] || {};
+    const dates = Object.keys(progress).sort((a, b) => b.localeCompare(a));
+    const listEl = document.getElementById('student-progress-list');
+    if (dates.length === 0) {
+        listEl.innerHTML = '';
+        return;
+    }
+    listEl.innerHTML = dates.map(dateStr => `
+        <div class="flex items-start justify-between gap-2 p-2 rounded-lg bg-white/80 border border-pink-200 text-sm">
+            <div class="min-w-0 flex-1">
+                <span class="font-semibold text-pink-700">${escapeHtml(formatDateLabel(dateStr))}</span>
+                <p class="text-gray-700 whitespace-pre-wrap mt-0.5">${escapeHtml(progress[dateStr])}</p>
+            </div>
+            <div class="flex gap-1 shrink-0">
+                <button onclick="copyProgressToClipboard('${dateStr}')" class="text-xs text-pink-500 hover:text-pink-700" title="Copy">Copy</button>
+                <button onclick="editProgressForDate('${dateStr}')" class="text-xs text-pink-500 hover:text-pink-700">Edit</button>
+                <button onclick="deleteProgressForDate('${dateStr}')" class="text-xs text-gray-500 hover:text-red-600">Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function saveStudentParentEmail() {
+    if (!selectedStudentId) return;
+    const input = document.getElementById('student-parent-email');
+    const email = input.value.trim() || null;
+    const students = getStudents();
+    const s = students.find(x => x.id === selectedStudentId);
+    if (s) {
+        s.parentEmail = email;
+        saveStudents(students);
+        showToast(email ? 'Parent email saved.' : 'Parent email cleared.');
+    }
+}
+
+function updateStudentIepLink() {
+    const input = document.getElementById('student-iep-url');
+    const link = document.getElementById('student-iep-link');
+    const url = input?.value?.trim();
+    if (link) {
+        if (url) {
+            link.href = url.startsWith('http') ? url : 'https://' + url;
+            link.classList.remove('hidden');
+        } else {
+            link.href = '#';
+            link.classList.add('hidden');
+        }
+    }
+}
+
+document.getElementById('student-iep-url')?.addEventListener('input', () => updateStudentIepLink());
+
+function saveStudentGoal() {
+    if (!selectedStudentId) return;
+    const input = document.getElementById('student-goal-input');
+    const goalVal = input.value.trim();
+    const goal = goalVal === '' ? null : Math.max(0, parseInt(goalVal, 10) || 0);
+    const students = getStudents();
+    const s = students.find(x => x.id === selectedStudentId);
+    if (s) {
+        s.goal = goal;
+        saveStudents(students);
+        input.value = goal != null ? goal : '';
+    }
+}
+
+function deselectStudent() {
+    selectedStudentId = null;
+    document.getElementById('student-notes-panel').classList.add('hidden');
+    document.getElementById('students-empty-hint').classList.remove('hidden');
+    renderStudents();
+}
+
+function getInitials(name) {
+    return name.split(/\s+/).map(w => w[0] || '').slice(0, 2).join('').toUpperCase() || '?';
+}
+
+function renderStudents() {
+    const students = getStudents();
+    const container = document.getElementById('students-list');
+    if (students.length === 0) {
+        container.innerHTML = '';
+        document.getElementById('students-empty-hint').classList.remove('hidden');
+        return;
+    }
+    document.getElementById('students-empty-hint').classList.add('hidden');
+    container.innerHTML = students.map(s => {
+        const pts = s.points ?? 0;
+        const goal = s.goal ?? null;
+        const ptsDisplay = goal != null ? `${pts}/${goal}` : pts;
+        const reachedGoal = goal != null && pts >= goal;
+        return `
+        <div role="button" tabindex="0" onclick="selectStudent('${s.id}')" onkeydown="if(event.key==='Enter'||event.key===' ')selectStudent('${s.id}')"
+            class="student-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer ${selectedStudentId === s.id ? 'selected' : ''}">
+            <div class="relative shrink-0">
+                <span class="student-initials w-10 h-10 rounded-full flex items-center justify-center text-sm">${escapeHtml(getInitials(s.name))}</span>
+            </div>
+            <span class="font-semibold text-gray-800 text-left flex-1">${escapeHtml(s.name)}</span>
+            <div class="flex items-center gap-1 shrink-0">
+                <span class="min-w-[24px] h-5 px-1 rounded-full flex items-center justify-center text-xs font-bold ${reachedGoal ? 'bg-green-500 text-white' : 'bg-white/80 border border-pink-300 text-pink-700'}">${ptsDisplay}</span>
+                <button type="button" onclick="event.stopPropagation(); adjustStudentPoints('${s.id}', 1)" class="w-7 h-7 rounded-lg flex items-center justify-center text-lg font-bold hover:bg-white/60 text-green-600" title="Add point">+</button>
+                <button type="button" onclick="event.stopPropagation(); adjustStudentPoints('${s.id}', -1)" class="w-7 h-7 rounded-lg flex items-center justify-center text-lg font-bold hover:bg-white/60 text-red-600" title="Remove point">−</button>
+            </div>
+        </div>
+    `}).join('');
+}
+
+let editingNoteDate = null;
+
+function saveStudentNote() {
+    if (!selectedStudentId) return;
+    const dateInput = document.getElementById('note-date').value;
+    const content = document.getElementById('note-content').value.trim();
+    if (!dateInput || !content) {
+        showToast('Please enter a date and note.');
+        return;
+    }
+    const notes = getStudentNotes();
+    if (!notes[selectedStudentId]) notes[selectedStudentId] = {};
+    const existing = notes[selectedStudentId][dateInput] || '';
+    if (editingNoteDate === dateInput) {
+        notes[selectedStudentId][dateInput] = content;
+    } else {
+        notes[selectedStudentId][dateInput] = existing ? existing + '\n\n---\n\n' + content : content;
+    }
+    editingNoteDate = null;
+    saveStudentNotes(notes);
+    document.getElementById('note-content').value = '';
+    document.getElementById('note-date').value = new Date().toISOString().slice(0, 10);
+    showToast('Note saved!');
+}
+
+function formatDateLabel(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    const today = new Date();
+    const isToday = dateStr === today.toISOString().slice(0, 10);
+    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+    return (isToday ? 'Today — ' : '') + d.toLocaleDateString(undefined, options);
+}
+
+function renderStudentNotes() {
+    if (!selectedStudentId) return;
+    const notes = getStudentNotes()[selectedStudentId] || {};
+    const dates = Object.keys(notes).sort((a, b) => b.localeCompare(a));
+    const listEl = document.getElementById('student-notes-list');
+    const emptyEl = document.getElementById('student-notes-empty');
+    if (dates.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+    }
+    emptyEl.classList.add('hidden');
+    listEl.innerHTML = dates.map(dateStr => `
+        <div class="note-day-card rounded-xl p-4">
+            <div class="flex justify-between items-start mb-2">
+                <span class="text-xs font-semibold" style="color: #EC4899;">${escapeHtml(formatDateLabel(dateStr))}</span>
+                <div class="flex gap-2">
+                    <button onclick="copyNoteToClipboard('${dateStr}')" class="text-xs text-pink-500 hover:text-pink-700 font-medium" title="Copy">Copy</button>
+                    <button onclick="editNoteForDate('${dateStr}')" class="text-xs text-pink-500 hover:text-pink-700 font-medium">Edit</button>
+                    <button onclick="deleteNoteForDate('${dateStr}')" class="text-xs text-gray-500 hover:text-red-600 font-medium">Delete</button>
+                </div>
+            </div>
+            <p class="text-gray-700 whitespace-pre-wrap">${escapeHtml(notes[dateStr])}</p>
+        </div>
+    `).join('');
+}
+
+function copyNoteToClipboard(dateStr) {
+    if (!selectedStudentId) return;
+    const notes = getStudentNotes()[selectedStudentId] || {};
+    const content = notes[dateStr];
+    if (!content) return;
+    const student = getStudents().find(s => s.id === selectedStudentId);
+    const label = formatDateLabel(dateStr);
+    const text = `${student?.name || 'Student'} — ${label}\n\n${content}`;
+    navigator.clipboard.writeText(text).then(() => showToast('Copied!')).catch(() => showToast('Copy failed.'));
+}
+
+function editNoteForDate(dateStr) {
+    editingNoteDate = dateStr;
+    const notes = getStudentNotes()[selectedStudentId] || {};
+    document.getElementById('note-date').value = dateStr;
+    document.getElementById('note-content').value = notes[dateStr] || '';
+    document.getElementById('note-content').focus();
+}
+
+function deleteNoteForDate(dateStr) {
+    if (!selectedStudentId) return;
+    if (!confirm('Delete this note?')) return;
+    const notes = getStudentNotes();
+    if (notes[selectedStudentId]) {
+        delete notes[selectedStudentId][dateStr];
+        saveStudentNotes(notes);
+        renderStudentNotes();
+        showToast('Note deleted.');
+    }
+}
+
+// ========== GROUPS ==========
+let selectedGroupId = null;
+
+function getWeekStart() {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+}
+
+function getGroups() {
+    try {
+        const stored = localStorage.getItem(STORAGE_GROUPS);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) { return []; }
+}
+
+function getGroupPlans() {
+    try {
+        const stored = localStorage.getItem(STORAGE_GROUP_PLANS);
+        return stored ? JSON.parse(stored) : {};
+    } catch (e) { return {}; }
+}
+
+function saveGroups(groups) {
+    localStorage.setItem(STORAGE_GROUPS, JSON.stringify(groups));
+    renderGroups();
+}
+
+function saveGroupPlans(plans) {
+    localStorage.setItem(STORAGE_GROUP_PLANS, JSON.stringify(plans));
+}
+
+function addGroup() {
+    const input = document.getElementById('new-group-name');
+    const name = input.value.trim();
+    if (!name) { showToast('Enter a group name.'); return; }
+    const groups = getGroups();
+    if (groups.some(g => g.name.toLowerCase() === name.toLowerCase())) { showToast('Group already exists.'); return; }
+    const id = 'g' + Date.now();
+    groups.push({ id, name });
+    saveGroups(groups);
+    input.value = '';
+    showToast('Group added!');
+}
+
+function deleteGroup(id, e) {
+    if (e) e.preventDefault();
+    if (!confirm('Remove this group and its lesson plans?')) return;
+    const groups = getGroups().filter(g => g.id !== id);
+    const plans = getGroupPlans();
+    delete plans[id];
+    saveGroups(groups);
+    saveGroupPlans(plans);
+    if (selectedGroupId === id) deselectGroup();
+    showToast('Group removed.');
+}
+
+function deleteGroupFromPanel(e) {
+    if (!selectedGroupId) return;
+    deleteGroup(selectedGroupId, e || { preventDefault: () => {} });
+}
+
+function selectGroup(id) {
+    if (selectedGroupId === id) {
+        deselectGroup();
+        return;
+    }
+    selectedGroupId = id;
+    document.getElementById('groups-empty-hint').classList.add('hidden');
+    document.getElementById('group-lesson-panel').classList.remove('hidden');
+    const group = getGroups().find(g => g.id === id);
+    document.getElementById('selected-group-name').textContent = group ? group.name : '';
+    const plans = getGroupPlans();
+    const weekKey = getWeekStart();
+    const groupPlan = plans[id]?.[weekKey] || plans[id] || {};
+    ['mon','tue','wed','thu','fri'].forEach(day => {
+        const el = document.getElementById('group-plan-' + day);
+        if (el) el.value = groupPlan[day] || '';
+    });
+    renderGroupTemplates();
+    renderGroups();
+}
+
+function deselectGroup() {
+    saveCurrentGroupPlan();
+    selectedGroupId = null;
+    document.getElementById('group-lesson-panel').classList.add('hidden');
+    document.getElementById('groups-empty-hint').classList.remove('hidden');
+    renderGroups();
+}
+
+function saveCurrentGroupPlan() {
+    if (!selectedGroupId) return;
+    const plans = getGroupPlans();
+    if (!plans[selectedGroupId]) plans[selectedGroupId] = {};
+    const weekKey = getWeekStart();
+    if (!plans[selectedGroupId][weekKey]) plans[selectedGroupId][weekKey] = {};
+    ['mon','tue','wed','thu','fri'].forEach(day => {
+        const el = document.getElementById('group-plan-' + day);
+        if (el) plans[selectedGroupId][weekKey][day] = el.value;
+    });
+    saveGroupPlans(plans);
+}
+
+function renderGroups() {
+    const groups = getGroups();
+    const container = document.getElementById('groups-list');
+    if (groups.length === 0) {
+        container.innerHTML = '';
+        document.getElementById('groups-empty-hint').classList.remove('hidden');
+        return;
+    }
+    document.getElementById('groups-empty-hint').classList.add('hidden');
+    container.innerHTML = groups.map(g => `
+        <div role="button" tabindex="0" onclick="selectGroup('${g.id}')" onkeydown="if(event.key==='Enter'||event.key===' ')selectGroup('${g.id}')"
+            class="template-card rounded-xl px-4 py-3 flex items-center gap-3 cursor-pointer ${selectedGroupId === g.id ? 'selected border-2 border-pink-400' : ''}">
+            <span class="font-semibold text-gray-800">${escapeHtml(g.name)}</span>
+            <button type="button" onclick="event.stopPropagation(); deleteGroup('${g.id}', event)" class="w-6 h-6 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center text-sm shrink-0" title="Remove">×</button>
+        </div>
+    `).join('');
+}
+
+function renderGroupTemplates() {
+    const container = document.getElementById('group-templates-list');
+    container.innerHTML = LESSON_PLAN_TEMPLATES.map(t => `
+        <div class="flex items-center justify-between gap-2 p-3 rounded-lg bg-white/80 border border-pink-200">
+            <span class="font-medium text-gray-800 text-sm">${escapeHtml(t.title)}</span>
+            <button type="button" onclick="copyLessonPlanTemplate('${t.id}')" class="btn-pink text-xs font-semibold py-1.5 px-3 rounded-lg shrink-0">Copy</button>
+        </div>
+    `).join('');
+}
+
+function copyLessonPlanTemplate(templateId) {
+    const t = LESSON_PLAN_TEMPLATES.find(x => x.id === templateId);
+    if (!t) return;
+    const groupName = selectedGroupId ? (getGroups().find(g => g.id === selectedGroupId)?.name || '[Group Name]') : '[Group Name]';
+    const content = t.content.replace(/\[Group Name\]/g, groupName).replace(/\[Date\]/g, new Date().toLocaleDateString());
+    navigator.clipboard.writeText(content).then(() => showToast('Copied!')).catch(() => showToast('Could not copy.'));
+}
+
+document.addEventListener('blur', (e) => {
+    if (e.target?.matches?.('#group-plan-mon, #group-plan-tue, #group-plan-wed, #group-plan-thu, #group-plan-fri')) saveCurrentGroupPlan();
+}, true);
+
+// ========== GOOGLE CALENDAR ==========
+function loadCalendarId() {
+    const id = localStorage.getItem(STORAGE_CALENDAR_ID) || '';
+    const input = document.getElementById('calendar-id-input');
+    input.value = id;
+    if (id) {
+        const encoded = encodeURIComponent(id);
+        const url = `https://calendar.google.com/calendar/embed?height=400&wkst=1&ctz=America%2FPhoenix&showTitle=0&showNav=1&showDate=1&showTabs=1&showCalendars=0&showTz=0&mode=WEEK&src=${encoded}&color=%23EC4899`;
+        document.getElementById('google-calendar-embed').src = url;
+    }
+}
+
+function applyCalendarId() {
+    const id = document.getElementById('calendar-id-input').value.trim();
+    if (!id) {
+        showToast('Enter your Gmail or calendar ID.');
+        return;
+    }
+    localStorage.setItem(STORAGE_CALENDAR_ID, id);
+    const encoded = encodeURIComponent(id);
+    const url = `https://calendar.google.com/calendar/embed?height=400&wkst=1&ctz=America%2FPhoenix&showTitle=0&showNav=1&showDate=1&showTabs=1&showCalendars=0&showTz=0&mode=WEEK&src=${encoded}&color=%23EC4899`;
+    document.getElementById('google-calendar-embed').src = url;
+    showToast('Calendar loaded!');
+}
+
+// ========== SHEETS ==========
+function getSheets() {
+    try {
+        const stored = localStorage.getItem(STORAGE_SHEETS);
+        return stored ? JSON.parse(stored) : [...DEFAULT_SHEETS];
+    } catch (e) { return [...DEFAULT_SHEETS]; }
+}
+
+function saveSheets(sheets) {
+    localStorage.setItem(STORAGE_SHEETS, JSON.stringify(sheets));
+    renderSheets();
+}
+
+function addSheet() {
+    const title = document.getElementById('new-sheet-title').value.trim();
+    const url = document.getElementById('new-sheet-url').value.trim();
+    const desc = document.getElementById('new-sheet-desc').value.trim();
+    if (!title || !url) {
+        showToast('Enter a sheet name and URL.');
+        return;
+    }
+    const sheets = getSheets();
+    sheets.push({ id: 's' + Date.now(), title, desc, url });
+    saveSheets(sheets);
+    closeAddSheetModal();
+    showToast('Sheet added!');
+}
+
+function deleteSheet(id, e) {
+    if (e) e.preventDefault();
+    if (!confirm('Remove this sheet from your list?')) return;
+    const sheets = getSheets().filter(s => s.id !== id);
+    saveSheets(sheets);
+    showToast('Sheet removed.');
+}
+
+function renderSheets() {
+    const sheets = getSheets();
+    const grid = document.getElementById('sheets-grid');
+    grid.innerHTML = sheets.map(s => `
+        <div class="template-card rounded-xl p-4 hover:shadow-md transition-shadow relative group">
+            <a href="${escapeHtml(s.url)}" target="_blank" class="block pr-8">
+                <span class="font-semibold text-gray-800">${escapeHtml(s.title)}</span>
+                <p class="text-xs text-gray-500 mt-1">${escapeHtml(s.desc || '')}</p>
+            </a>
+            <button type="button" onclick="deleteSheet('${s.id}', event)" class="absolute top-2 right-2 w-6 h-6 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center text-sm" title="Remove">×</button>
+        </div>
+    `).join('');
+}
+
+function showAddSheetModal() {
+    document.getElementById('add-sheet-modal').classList.remove('hidden');
+    document.getElementById('new-sheet-title').value = '';
+    document.getElementById('new-sheet-url').value = '';
+    document.getElementById('new-sheet-desc').value = '';
+}
+
+function closeAddSheetModal() {
+    document.getElementById('add-sheet-modal').classList.add('hidden');
+}
+
+// ========== FORMS ==========
+function getFormEmbedUrl(input) {
+    const val = (input || '').trim();
+    if (!val) return null;
+    const eMatch = val.match(/\/forms\/d\/e\/([a-zA-Z0-9_-]+)/);
+    const dMatch = val.match(/\/forms\/d\/([a-zA-Z0-9_-]+)/);
+    if (eMatch) return `https://docs.google.com/forms/d/e/${eMatch[1]}/viewform?embedded=true`;
+    if (dMatch) return `https://docs.google.com/forms/d/${dMatch[1]}/viewform?embedded=true`;
+    return `https://docs.google.com/forms/d/e/${val}/viewform?embedded=true`;
+}
+
+let openFormIds = new Set();
+
+function getForms() {
+    try {
+        const stored = localStorage.getItem(STORAGE_FORMS);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) { return []; }
+}
+
+function saveForms(forms) {
+    localStorage.setItem(STORAGE_FORMS, JSON.stringify(forms));
+    renderForms();
+}
+
+function addForm() {
+    const title = document.getElementById('new-form-title').value.trim();
+    const url = document.getElementById('new-form-url').value.trim();
+    if (!title || !url) {
+        showToast('Enter a form name and URL.');
+        return;
+    }
+    const embedUrl = getFormEmbedUrl(url);
+    if (!embedUrl) {
+        showToast('Enter a valid Google Form URL.');
+        return;
+    }
+    const forms = getForms();
+    forms.push({ id: 'f' + Date.now(), title, url, embedUrl });
+    saveForms(forms);
+    closeAddFormModal();
+    showToast('Form added!');
+}
+
+function deleteForm(id, e) {
+    if (e) e.preventDefault();
+    if (!confirm('Remove this form?')) return;
+    openFormIds.delete(id);
+    const forms = getForms().filter(f => f.id !== id);
+    saveForms(forms);
+    showToast('Form removed.');
+}
+
+function toggleForm(id) {
+    if (openFormIds.has(id)) {
+        openFormIds.delete(id);
+    } else {
+        openFormIds.add(id);
+    }
+    renderForms();
+}
+
+function renderForms() {
+    const forms = getForms();
+    const listEl = document.getElementById('forms-list');
+    const embedsEl = document.getElementById('forms-embeds');
+    listEl.innerHTML = forms.map(f => `
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="toggleForm('${f.id}')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${openFormIds.has(f.id) ? 'bg-pink-200 text-pink-800' : 'bg-white border border-pink-200 text-gray-700 hover:bg-pink-50'}">
+                ${openFormIds.has(f.id) ? '✕ Close' : '📝 Open'} ${escapeHtml(f.title)}
+            </button>
+            <button type="button" onclick="deleteForm('${f.id}', event)" class="w-6 h-6 rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center text-sm" title="Remove">×</button>
+        </div>
+    `).join('');
+    embedsEl.innerHTML = forms.filter(f => openFormIds.has(f.id)).map(f => `
+        <div class="rounded-lg overflow-hidden shadow-md" style="height: 450px;">
+            <div class="flex items-center justify-between px-3 py-2" style="background: #FDF2F8;">
+                <span class="font-semibold text-gray-800">${escapeHtml(f.title)}</span>
+                <button type="button" onclick="toggleForm('${f.id}')" class="text-sm text-pink-600 hover:text-pink-800">✕ Close</button>
+            </div>
+            <iframe src="${escapeHtml(f.embedUrl)}" class="w-full border-none" style="height: calc(100% - 44px);" allowfullscreen></iframe>
+        </div>
+    `).join('');
+}
+
+function showAddFormModal() {
+    document.getElementById('add-form-modal').classList.remove('hidden');
+    document.getElementById('new-form-title').value = '';
+    document.getElementById('new-form-url').value = '';
+}
+
+function closeAddFormModal() {
+    document.getElementById('add-form-modal').classList.add('hidden');
+}
+
+// ========== IMPORTANT MEETINGS ==========
+function getImportantMeetings() {
+    try {
+        const stored = localStorage.getItem(STORAGE_IMPORTANT_MEETINGS);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) { return []; }
+}
+
+function saveImportantMeetings(meetings) {
+    localStorage.setItem(STORAGE_IMPORTANT_MEETINGS, JSON.stringify(meetings));
+    renderImportantMeetings();
+}
+
+function addImportantMeeting() {
+    const title = document.getElementById('imp-meeting-title').value.trim();
+    const date = document.getElementById('imp-meeting-date').value;
+    const time = document.getElementById('imp-meeting-time').value;
+    if (!title || !date) {
+        showToast('Please enter a meeting name and date.');
+        return;
+    }
+    const meetings = getImportantMeetings();
+    meetings.push({ id: 'm' + Date.now(), title, date, time: time || '' });
+    saveImportantMeetings(meetings);
+    document.getElementById('imp-meeting-title').value = '';
+    document.getElementById('imp-meeting-date').value = '';
+    document.getElementById('imp-meeting-time').value = '';
+    showToast('Important meeting added!');
+}
+
+function removeImportantMeeting(id) {
+    const meetings = getImportantMeetings().filter(m => m.id !== id);
+    saveImportantMeetings(meetings);
+}
+
+function formatMeetingDate(dateStr, timeStr) {
+    const d = new Date(dateStr + (timeStr ? 'T' + timeStr : 'T12:00:00'));
+    const date = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return timeStr ? `${date} at ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}` : date;
+}
+
+function renderImportantMeetings() {
+    const meetings = getImportantMeetings().sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')));
+    const listEl = document.getElementById('important-meetings-list');
+    const emptyEl = document.getElementById('important-meetings-empty');
+    if (meetings.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+    }
+    emptyEl.classList.add('hidden');
+    listEl.innerHTML = meetings.map(m => `
+        <div class="important-meeting-card rounded-lg p-3">
+            <div class="flex justify-between items-start gap-2">
+                <div>
+                    <div class="font-semibold text-gray-800 text-sm">${escapeHtml(m.title)}</div>
+                    <div class="text-xs text-gray-500">${escapeHtml(formatMeetingDate(m.date, m.time))}</div>
+                </div>
+                <button onclick="removeImportantMeeting('${m.id}')" class="text-gray-400 hover:text-red-500 text-xs shrink-0">✕</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function copyTemplate(id, btn) {
+    const templates = getTemplates();
+    const t = templates.find(x => x.id === id);
+    if (!t) return;
+    navigator.clipboard.writeText(t.content).then(() => {
+        if (btn) {
+            btn.textContent = '✓';
+            btn.classList.add('opacity-90');
+            setTimeout(() => {
+                btn.textContent = '📋';
+                btn.classList.remove('opacity-90');
+            }, 3000);
+        }
+        showToast('Copied to clipboard!');
+    }).catch(() => showToast('Copy failed.'));
+}
+
+function deleteTemplate(id) {
+    if (!confirm('Delete this template?')) return;
+    const templates = getTemplates().filter(t => t.id !== id);
+    saveTemplates(templates);
+}
+
+let editTemplateId = null;
+
+function showAddTemplateModal() {
+    editTemplateId = null;
+    document.getElementById('template-modal-title').textContent = 'Add New Template';
+    document.getElementById('new-template-title').value = '';
+    document.getElementById('new-template-content').value = '';
+    document.getElementById('new-template-category').value = 'parent';
+    document.getElementById('add-template-modal').classList.remove('hidden');
+}
+
+function showEditTemplateModal(id) {
+    const templates = getTemplates();
+    const t = templates.find(x => x.id === id);
+    if (!t) return;
+    editTemplateId = id;
+    document.getElementById('template-modal-title').textContent = 'Edit Template';
+    document.getElementById('new-template-title').value = t.title;
+    document.getElementById('new-template-content').value = t.content;
+    document.getElementById('new-template-category').value = t.category;
+    document.getElementById('add-template-modal').classList.remove('hidden');
+}
+
+function closeAddTemplateModal() {
+    editTemplateId = null;
+    document.getElementById('add-template-modal').classList.add('hidden');
+}
+
+function saveTemplate() {
+    const title = document.getElementById('new-template-title').value.trim();
+    const content = document.getElementById('new-template-content').value.trim();
+    const category = document.getElementById('new-template-category').value;
+    if (!title || !content) {
+        alert('Please fill in both title and content.');
+        return;
+    }
+    const templates = getTemplates();
+    if (editTemplateId) {
+        const idx = templates.findIndex(t => t.id === editTemplateId);
+        if (idx >= 0) {
+            templates[idx] = { ...templates[idx], title, category, content };
+        }
+    } else {
+        const newId = 't' + Date.now();
+        templates.push({ id: newId, title, category, content });
+    }
+    saveTemplates(templates);
+    closeAddTemplateModal();
+}
+
+// ========== TODAY'S FOCUS ==========
+function loadFocus() {
+    try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_FOCUS) || '{}');
+        const today = new Date().toDateString();
+        if (stored.date === today && stored.focus) {
+            ['focus-1', 'focus-2', 'focus-3'].forEach((id, i) => {
+                const el = document.getElementById(id);
+                if (el && stored.focus[i]) el.value = stored.focus[i];
+            });
+        }
+    } catch (e) {}
+}
+
+function saveFocus() {
+    const focus = ['focus-1', 'focus-2', 'focus-3'].map(id => document.getElementById(id)?.value || '');
+    localStorage.setItem(STORAGE_FOCUS, JSON.stringify({ date: new Date().toDateString(), focus }));
+}
+
+document.querySelectorAll('#focus-1, #focus-2, #focus-3').forEach(el => {
+    el.addEventListener('blur', saveFocus);
+});
+
+// ========== TO-DO ==========
+function getTodos() {
+    try {
+        const stored = localStorage.getItem(STORAGE_TODOS);
+        return stored ? JSON.parse(stored) : [];
+    } catch (e) { return []; }
+}
+
+function saveTodos(todos) {
+    localStorage.setItem(STORAGE_TODOS, JSON.stringify(todos));
+    renderTodos();
+}
+
+function renderTodos() {
+    const todos = getTodos();
+    const container = document.getElementById('todo-list');
+    container.innerHTML = todos.map((t, i) => `
+        <div class="flex items-center gap-2">
+            <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTodo(${i})" class="rounded border-pink-300">
+            <span class="flex-1 text-sm ${t.done ? 'line-through text-gray-500' : ''}">${escapeHtml(t.text)}</span>
+            <button onclick="removeTodo(${i})" class="text-gray-400 hover:text-red-500 text-xs">✕</button>
+        </div>
+    `).join('');
+}
+
+function addTodo() {
+    const input = document.getElementById('todo-input');
+    const text = input.value.trim();
+    if (!text) return;
+    const todos = getTodos();
+    todos.push({ text, done: false });
+    saveTodos(todos);
+    input.value = '';
+}
+
+function toggleTodo(i) {
+    const todos = getTodos();
+    todos[i].done = !todos[i].done;
+    saveTodos(todos);
+}
+
+function removeTodo(i) {
+    const todos = getTodos().filter((_, j) => j !== i);
+    saveTodos(todos);
+}
+
+document.getElementById('todo-input')?.addEventListener('keypress', e => {
+    if (e.key === 'Enter') addTodo();
+});
+
+// ========== OPEN IN CURSOR ==========
+function copyDashboardPathToClipboard() {
+    let path = '';
+    try {
+        const href = window.location.href;
+        if (href.startsWith('file:///')) {
+            path = decodeURIComponent(href.replace('file:///', '')).replace(/\//g, '\\');
+            if (path.includes('\\')) path = path.substring(0, path.lastIndexOf('\\'));
+        }
+    } catch (e) {}
+    if (!path) path = 'C:\\Users\\' + (window.location.pathname.split('/')[2] || 'YourUsername') + '\\dashboards';
+    navigator.clipboard.writeText(path).then(() => {
+        showToast('Path copied! In Cursor: File → Open Folder, paste the path. Then tell the AI what you want to change.');
+    }).catch(() => showToast('Could not copy path.'));
+}
+
+// ========== VERSE OF THE DAY ==========
+function initVerseOfDay() {
+    const today = new Date().toISOString().slice(0, 10);
+    const closedDate = localStorage.getItem(STORAGE_VERSE_CLOSED_DATE) || '';
+    if (closedDate === today) return;
+    if (typeof LSB_VERSES === 'undefined' || !LSB_VERSES.length) return;
+    const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+    const verse = LSB_VERSES[dayOfYear % LSB_VERSES.length];
+    document.getElementById('verse-text').textContent = verse.text;
+    document.getElementById('verse-ref').textContent = '— ' + verse.ref;
+    document.getElementById('verse-of-day').classList.remove('hidden');
+}
+
+function closeVerseOfDay() {
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(STORAGE_VERSE_CLOSED_DATE, today);
+    document.getElementById('verse-of-day').classList.add('hidden');
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+}
+
+// ========== BACKUP ==========
+function createBackupData() {
+    return {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        templates: getTemplates(),
+        students: getStudents(),
+        studentNotes: getStudentNotes(),
+        studentProgress: getStudentProgress(),
+        groups: getGroups(),
+        groupPlans: getGroupPlans(),
+        focus: { date: new Date().toDateString(), focus: [document.getElementById('focus-1')?.value || '', document.getElementById('focus-2')?.value || '', document.getElementById('focus-3')?.value || ''] },
+        todos: getTodos(),
+        calendarId: localStorage.getItem(STORAGE_CALENDAR_ID) || '',
+        sheets: getSheets(),
+        forms: getForms(),
+        importantMeetings: getImportantMeetings()
+    };
+}
+
+function downloadBackup() {
+    const data = createBackupData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/(\d{8})(\d{6})/, '$1-$2');
+    a.download = `dashboard-backup-${ts}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    localStorage.setItem(STORAGE_LAST_BACKUP, Date.now().toString());
+    showToast('Backup saved! Save to your dashboard folder.');
+}
+
+function checkAutoBackup() {
+    const last = localStorage.getItem(STORAGE_LAST_BACKUP);
+    if (!last) return;
+    const hours = (Date.now() - parseInt(last, 10)) / (1000 * 60 * 60);
+    if (hours >= 24) downloadBackup();
+}
+
+function restoreFromBackup(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const data = JSON.parse(reader.result);
+            if (data.templates) { localStorage.setItem(STORAGE_TEMPLATES, JSON.stringify(data.templates)); }
+            if (data.students) { localStorage.setItem(STORAGE_STUDENTS, JSON.stringify(data.students)); }
+            if (data.studentNotes) { localStorage.setItem(STORAGE_STUDENT_NOTES, JSON.stringify(data.studentNotes)); }
+            if (data.studentProgress) { localStorage.setItem(STORAGE_STUDENT_PROGRESS, JSON.stringify(data.studentProgress)); }
+            if (data.groups) { localStorage.setItem(STORAGE_GROUPS, JSON.stringify(data.groups)); }
+            if (data.groupPlans) { localStorage.setItem(STORAGE_GROUP_PLANS, JSON.stringify(data.groupPlans)); }
+            if (data.todos) { localStorage.setItem(STORAGE_TODOS, JSON.stringify(data.todos)); }
+            if (data.calendarId != null) { localStorage.setItem(STORAGE_CALENDAR_ID, data.calendarId); }
+            if (data.sheets) { localStorage.setItem(STORAGE_SHEETS, JSON.stringify(data.sheets)); }
+            if (data.forms) { localStorage.setItem(STORAGE_FORMS, JSON.stringify(data.forms)); }
+            if (data.importantMeetings) { localStorage.setItem(STORAGE_IMPORTANT_MEETINGS, JSON.stringify(data.importantMeetings)); }
+            if (data.focus?.focus) {
+                document.getElementById('focus-1').value = data.focus.focus[0] || '';
+                document.getElementById('focus-2').value = data.focus.focus[1] || '';
+                document.getElementById('focus-3').value = data.focus.focus[2] || '';
+                localStorage.setItem(STORAGE_FOCUS, JSON.stringify(data.focus));
+            }
+            showToast('Restored!');
+            location.reload();
+        } catch (err) {
+            showToast('Invalid backup file.');
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+}
+
+// ========== TIMER ==========
+let timerInterval = null;
+
+function showTimerModal() {
+    document.getElementById('timer-modal').classList.remove('hidden');
+}
+
+function closeTimerModal() {
+    document.getElementById('timer-modal').classList.add('hidden');
+}
+
+function setTimerMinutes(m) {
+    document.getElementById('timer-minutes-input').value = m;
+}
+
+function startTimer() {
+    const mins = parseInt(document.getElementById('timer-minutes-input').value, 10) || 5;
+    if (mins < 1 || mins > 120) { showToast('Enter 1–120 minutes.'); return; }
+    closeTimerModal();
+    let remaining = mins * 60;
+    const overlay = document.getElementById('timer-overlay');
+    const countdownEl = document.getElementById('timer-countdown');
+    const labelEl = document.getElementById('timer-label');
+    overlay.classList.remove('hidden');
+    function tick() {
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        countdownEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        labelEl.textContent = remaining > 60 ? 'minutes remaining' : (remaining > 0 ? 'seconds remaining' : "Time's up!");
+        if (remaining <= 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            countdownEl.textContent = "Time's up!";
+            labelEl.textContent = '';
+            const btn = document.getElementById('timer-cancel-btn');
+            if (btn) { btn.textContent = 'Dismiss'; }
+            const audio = document.getElementById('alert-sound');
+            if (audio) { audio.currentTime = 0; audio.play(); }
+            return;
+        }
+        remaining--;
+    }
+    if (timerInterval) clearInterval(timerInterval);
+    tick();
+    timerInterval = setInterval(tick, 1000);
+}
+
+function cancelTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+    document.getElementById('timer-overlay').classList.add('hidden');
+    const btn = document.getElementById('timer-cancel-btn');
+    if (btn) btn.textContent = 'Cancel';
+}
+
+// ========== PRINT STUDENT NOTES ==========
+function printStudentNotes() {
+    if (!selectedStudentId) return;
+    const student = getStudents().find(s => s.id === selectedStudentId);
+    const notes = getStudentNotes()[selectedStudentId] || {};
+    const progress = getStudentProgress()[selectedStudentId] || {};
+    const dates = Object.keys(notes).sort((a, b) => b.localeCompare(a));
+    const progressDates = Object.keys(progress).sort((a, b) => b.localeCompare(a));
+    const notesHtml = dates.map(d => `
+        <div style="margin-bottom: 1rem; padding: 0.75rem; border-left: 4px solid #EC4899; background: #FDF2F8;">
+            <div style="font-weight: 600; color: #831843; font-size: 0.875rem;">${escapeHtml(formatDateLabel(d))}</div>
+            <p style="margin-top: 0.25rem; color: #374151;">${escapeHtml(notes[d])}</p>
+        </div>
+    `).join('');
+    const el = document.getElementById('print-student-notes');
+    const goalsHtml = student?.goals ? `<h2 style="font-size: 1rem; color: #EC4899; margin-bottom: 0.5rem;">Goals</h2><p style="color: #374151; font-size: 0.875rem; margin-bottom: 1rem; white-space: pre-wrap;">${escapeHtml(student.goals)}</p>` : '';
+    const progressHtml = progressDates.length > 0 ? `<h2 style="font-size: 1rem; color: #EC4899; margin-bottom: 0.5rem;">Progress</h2>${progressDates.map(d => `
+        <div style="margin-bottom: 0.75rem; padding: 0.5rem; border-left: 3px solid #EC4899; background: #FDF2F8;">
+            <div style="font-weight: 600; color: #831843; font-size: 0.8rem;">${escapeHtml(formatDateLabel(d))}</div>
+            <p style="margin-top: 0.25rem; color: #374151; font-size: 0.875rem;">${escapeHtml(progress[d])}</p>
+        </div>
+    `).join('')}` : '';
+    el.innerHTML = `
+        <div style="font-family: Nunito, sans-serif; max-width: 700px;">
+            <h1 style="color: #EC4899; font-size: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(student?.name || 'Student')} — Notes</h1>
+            <p style="color: #6B7280; font-size: 0.875rem; margin-bottom: 1rem;">Points: ${student?.points ?? 0}${student?.goal != null ? ` / Goal: ${student.goal}` : ''} — Printed ${new Date().toLocaleDateString()}</p>
+            ${goalsHtml}
+            ${progressHtml}
+            <h2 style="font-size: 1rem; color: #EC4899; margin-bottom: 0.5rem;">Notes by Day</h2>
+            ${notesHtml || '<p style="color: #6B7280;">No notes yet.</p>'}
+        </div>
+    `;
+    el.classList.remove('hidden');
+    window.print();
+    el.classList.add('hidden');
+    el.innerHTML = '';
+}
+
+// ========== CLOCK ==========
+function updateClock() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: 'numeric', second: 'numeric' });
+    const headerEl = document.getElementById('header-time');
+    if (headerEl) headerEl.textContent = timeStr;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ========== SCHEDULE ==========
+let isFadingEnabled = true;
+const scheduleData = {
+    "7:30":  ["Prep", "Prep", "Prep", "Prep", "Prep"],
+    "8:00":  ["Period 1", "Period 1", "Period 1", "Period 1", "Period 1"],
+    "8:30":  ["Period 1", "Period 1", "Period 1", "Period 1", "Period 1"],
+    "9:00":  ["Period 2", "Period 2", "Period 2", "Period 2", "Period 2"],
+    "9:30":  ["Period 2", "Period 2", "Period 2", "Period 2", "Period 2"],
+    "10:00": ["Break", "Break", "Break", "Break", "Break"],
+    "10:30": ["Period 3", "Period 3", "Period 3", "Period 3", "Period 3"],
+    "11:00": ["Period 3", "Period 3", "Period 3", "Period 3", "Period 3"],
+    "11:30": ["Lunch", "Lunch", "Lunch", "Lunch", "Lunch"],
+    "12:00": ["Lunch", "Lunch", "Lunch", "Lunch", "Lunch"],
+    "12:30": ["Period 4", "Period 4", "IEP Meeting", "Period 4", "PLC"],
+    "1:00":  ["Period 4", "Period 4", "IEP Meeting", "Period 4", "PLC"],
+    "1:30":  ["Period 5", "Period 5", "Period 4", "Period 5", "Planning"],
+    "2:00":  ["Period 5", "Period 5", "Period 4", "Period 5", "Planning"],
+    "2:30":  ["Period 6", "Period 6", "Period 5", "Period 6", "Planning"],
+    "3:00":  ["Period 6", "Period 6", "Period 5", "Period 6", ""],
+    "3:30":  ["Planning", "Planning", "Period 6", "Planning", ""]
+};
+
+const colorMap = {
+    "Prep": "bg-prep", "Period 1": "bg-class", "Period 2": "bg-class", "Period 3": "bg-class",
+    "Period 4": "bg-class", "Period 5": "bg-class", "Period 6": "bg-class",
+    "Break": "bg-lunch", "Lunch": "bg-lunch",
+    "IEP Meeting": "bg-iep", "PLC": "bg-plc", "Planning": "bg-planning"
+};
+
+function buildSchedule() {
+    const tbody = document.getElementById('schedule-body');
+    tbody.innerHTML = '';
+    Object.keys(scheduleData).forEach(time => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td class="font-semibold" style="background: #FBCFE8;">${time}</td>` + scheduleData[time].map((task, dayIndex) => {
+            const colorClass = colorMap[task] || "";
+            return `<td class="${colorClass} day-col-${dayIndex}" id="cell-${dayIndex}-${time.replace(':','')}">${task}</td>`;
+        }).join('');
+        tbody.appendChild(row);
+    });
+}
+
+function toggleFading() {
+    isFadingEnabled = !isFadingEnabled;
+    document.getElementById('fade-toggle-btn').textContent = `Toggle Day Fading: ${isFadingEnabled ? 'ON' : 'OFF'}`;
+    checkSchedule();
+}
+
+let lastAlertedTime = "", lastWarningTime = "", snoozeTimeout;
+
+function showScheduleModal(title, message) {
+    clearTimeout(snoozeTimeout);
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-text').textContent = message;
+    document.getElementById('schedule-modal').classList.remove('hidden');
+}
+
+function snoozeScheduleModal() {
+    const title = document.getElementById('modal-title').textContent;
+    const text = document.getElementById('modal-text').textContent;
+    document.getElementById('schedule-modal').classList.add('hidden');
+    snoozeTimeout = setTimeout(() => showScheduleModal('Snoozed: ' + title, text), 300000);
+}
+
+function closeScheduleModal() {
+    document.getElementById('schedule-modal').classList.add('hidden');
+    clearTimeout(snoozeTimeout);
+}
+
+function checkSchedule() {
+    const now = new Date();
+    const day = now.getDay() - 1;
+    for (let i = 0; i < 5; i++) {
+        const header = document.getElementById(`header-${i}`);
+        const cells = document.querySelectorAll(`.day-col-${i}`);
+        header?.classList.remove('day-faded', 'day-active');
+        cells.forEach(c => c.classList.remove('day-faded', 'day-active'));
+        if (day >= 0 && day <= 4) {
+            const active = !isFadingEnabled || i === day;
+            header?.classList.add(active ? 'day-active' : 'day-faded');
+            cells.forEach(c => c.classList.add(active ? 'day-active' : 'day-faded'));
+        }
+    }
+    document.querySelectorAll('.current-slot').forEach(el => el.classList.remove('current-slot'));
+    if (day < 0 || day > 4) {
+        document.getElementById('now-display').textContent = 'NOW: Weekend/Off';
+        return;
+    }
+    const timeKeys = Object.keys(scheduleData);
+    let currentTask = 'None', activeTimeKey = null;
+    for (let i = 0; i < timeKeys.length; i++) {
+        const [sHour, sMin] = timeKeys[i].split(':').map(Number);
+        const checkHour = sHour < 7 ? sHour + 12 : sHour;
+        const start = new Date(); start.setHours(checkHour, sMin, 0);
+        const end = new Date(start.getTime() + 30 * 60000);
+        if (now >= start && now < end) {
+            currentTask = scheduleData[timeKeys[i]][day];
+            activeTimeKey = timeKeys[i];
+            break;
+        }
+    }
+    document.getElementById('now-display').textContent = `NOW: ${currentTask}`;
+    if (activeTimeKey) {
+        const cell = document.getElementById(`cell-${day}-${activeTimeKey.replace(':', '')}`);
+        cell?.classList.add('current-slot');
+    }
+    timeKeys.forEach(timeKey => {
+        const [sHour, sMin] = timeKey.split(':').map(Number);
+        const checkHour = sHour < 7 ? sHour + 12 : sHour;
+        const scheduleTime = new Date(); scheduleTime.setHours(checkHour, sMin, 0);
+        const diff = (scheduleTime - now) / 60000;
+        if (diff > 9 && diff <= 10 && lastWarningTime !== timeKey) {
+            showScheduleModal('10 Minute Warning', `Next: ${scheduleData[timeKey][day]} at ${timeKey}`);
+            lastWarningTime = timeKey;
+        }
+        if (diff > -1 && diff <= 0 && lastAlertedTime !== timeKey) {
+            showScheduleModal('Time to Switch!', `Next block: ${scheduleData[timeKey][day]}`);
+            lastAlertedTime = timeKey;
+        }
+    });
+}
+
+
+// ========== INIT ==========
+buildSchedule();
+setInterval(checkSchedule, 30000);
+checkSchedule();
+renderTemplates();
+loadFocus();
+renderTodos();
+renderStudents();
+renderGroups();
+renderImportantMeetings();
+loadCalendarId();
+renderSheets();
+renderForms();
+document.getElementById('imp-meeting-date').value = new Date().toISOString().slice(0, 10);
+initVerseOfDay();
+setTimeout(checkAutoBackup, 2000);
+if (!localStorage.getItem(STORAGE_SETUP_SEEN)) {
+    document.getElementById('setup-guide').classList.remove('hidden');
+}
+function dismissSetupGuide() {
+    localStorage.setItem(STORAGE_SETUP_SEEN, '1');
+    document.getElementById('setup-guide').classList.add('hidden');
+}
+function showSetupGuide() {
+    document.getElementById('setup-guide').classList.remove('hidden');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Verrado Heritage Teacher Dashboard
+
+This is a personalized dashboard for a special ed resource teacher at Verrado Heritage Elementary.
+
+## Main File
+- **MyDashboard.html** - The main dashboard file. All user-facing changes should be made here.
+
+## Structure
+The dashboard has these main sections:
+1. **Email & Message Templates** - Stored in localStorage. Users can add/edit/delete templates. Categories: Parent Communication, Admin/Staff, IEP/Documentation, General.
+2. **Google Sheets Hub** - Links to the user's important Google Sheets. Update the URLs when she adds new sheets.
+3. **Life Planner** - Calendar, Today's Top 3 (localStorage), To-Do list (localStorage), Quick Links.
+4. **Weekly Schedule** - Teacher schedule blocks. Edit `scheduleData` in the script to change times/activities. Color mapping is in `colorMap`.
+5. **Quick Notes** - Embedded Google Sheet. Replace PASTE_YOUR_SHEET_ID with her actual Sheet ID.
+
+## User Preferences
+- The user prefers simple language. Interpret requests accordingly.
+- She likes pink and stereotypically girly tones - keep the aesthetic.
+- When she asks for changes, make them directly to MyDashboard.html.
+
+## Common Modifications
+- **Add a template**: Add to STARTER_TEMPLATES or the user can add via the UI (stored in localStorage).
+- **Change schedule**: Edit the `scheduleData` object (time blocks) and `colorMap` (colors for block types).
+- **Add/change Sheets links**: Update the href in the Google Sheets Hub section.
+- **Change colors/theme**: Update the CSS variables and Tailwind classes in the style section and inline styles.
