@@ -263,9 +263,15 @@
                         <input type="url" id="student-iep-url" placeholder="Paste IEP Pro URL..." class="flex-1 min-w-0 text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300" onchange="saveStudentIepUrl()">
                         <a id="student-iep-link" href="#" target="_blank" class="btn-pink text-xs font-semibold py-1.5 px-3 rounded-lg shrink-0 hidden">Open</a>
                     </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-4 mb-4 p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
                         <label class="text-sm font-semibold text-gray-700 shrink-0">Parent email:</label>
                         <input type="email" id="student-parent-email" placeholder="parent@email.com" class="flex-1 min-w-0 text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300" onchange="saveStudentParentEmail()">
+                    </div>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <label class="text-sm font-semibold text-gray-700 shrink-0">Parent phone:</label>
+                        <input type="tel" id="student-parent-phone" placeholder="(555) 123-4567" class="flex-1 min-w-0 text-sm border border-pink-200 rounded-lg px-2 py-1 focus:ring-2 focus:ring-pink-300" onchange="saveStudentParentPhone()">
                     </div>
                 </div>
                 <div class="mb-4 p-4 rounded-xl" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 50%);">
@@ -820,7 +826,7 @@ function addStudent() {
         return;
     }
     const id = 's' + Date.now();
-    students.push({ id, name, points: 0, goal: null, iepUrl: null, parentEmail: null, goals: null });
+    students.push({ id, name, points: 0, goal: null, iepUrl: null, parentEmail: null, parentPhone: null, goals: null });
     saveStudents(students);
     input.value = '';
     showToast('Student added!');
@@ -874,6 +880,7 @@ function selectStudent(id) {
     document.getElementById('student-goal-input').value = student && student.goal != null ? student.goal : '';
     document.getElementById('student-iep-url').value = student && student.iepUrl ? student.iepUrl : '';
     document.getElementById('student-parent-email').value = student && student.parentEmail ? student.parentEmail : '';
+    document.getElementById('student-parent-phone').value = student && student.parentPhone ? student.parentPhone : '';
     document.getElementById('student-goals').value = student && student.goals ? student.goals : '';
     document.getElementById('progress-date').value = new Date().toISOString().slice(0, 10);
     updateStudentIepLink();
@@ -1001,6 +1008,21 @@ function renderStudentProgress() {
         </div>
     `).join('');
 }
+
+function saveStudentParentPhone() {
+    if (!selectedStudentId) return;
+    const input = document.getElementById('student-parent-phone');
+    const phone = input.value.trim() || null;
+    const students = getStudents();
+    const s = students.find(x => x.id === selectedStudentId);
+    if (s) {
+        s.parentPhone = phone;
+        saveStudents(students);
+        showToast('Parent phone saved.');
+    }
+}
+
+document.getElementById('student-parent-phone')?.addEventListener('blur', saveStudentParentPhone);
 
 function saveStudentParentEmail() {
     if (!selectedStudentId) return;
@@ -1970,7 +1992,8 @@ function printStudentNotes() {
     el.innerHTML = `
         <div style="font-family: Nunito, sans-serif; max-width: 700px;">
             <h1 style="color: #EC4899; font-size: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(student?.name || 'Student')} — Notes</h1>
-            <p style="color: #6B7280; font-size: 0.875rem; margin-bottom: 1rem;">Points: ${student?.points ?? 0}${student?.goal != null ? ` / Goal: ${student.goal}` : ''} — Printed ${new Date().toLocaleDateString()}</p>
+            <p style="color: #6B7280; font-size: 0.875rem; margin-bottom: 0.5rem;">Points: ${student?.points ?? 0}${student?.goal != null ? ` / Goal: ${student.goal}` : ''} — Printed ${new Date().toLocaleDateString()}</p>
+            ${(student?.parentEmail || student?.parentPhone) ? `<p style="color: #6B7280; font-size: 0.875rem; margin-bottom: 1rem;">Contact: ${escapeHtml([student?.parentEmail, student?.parentPhone].filter(Boolean).join(' | '))}</p>` : ''}
             ${goalsHtml}
             ${progressHtml}
             <h2 style="font-size: 1rem; color: #EC4899; margin-bottom: 0.5rem;">Notes by Day</h2>
