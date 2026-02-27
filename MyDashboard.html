@@ -116,10 +116,11 @@
 
 <!-- HEADER WITH OPEN IN CURSOR -->
 <div class="flex flex-wrap justify-between items-center gap-3 mb-6 pb-4 border-b-2 border-pink-200">
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 flex-wrap">
         <h1 class="text-2xl md:text-3xl font-bold" style="color: #EC4899;">Summer's Teaching Dashboard</h1>
         <span class="text-gray-400 text-xl md:text-2xl hidden sm:inline">|</span>
         <span id="header-time" class="text-2xl md:text-3xl font-bold tabular-nums" style="color: #EC4899;"></span>
+        <div id="minimized-timers" class="flex flex-wrap items-center gap-2"></div>
     </div>
     <div class="flex flex-wrap items-center gap-2">
         <button onclick="showTimerModal()" class="text-sm font-semibold py-2 px-3 rounded-xl border-2 border-pink-200 text-pink-600 hover:bg-pink-50 transition-all" title="Set a countdown timer">⏱ Timer</button>
@@ -635,6 +636,9 @@
             <input type="number" id="timer-minutes-input" min="1" max="120" value="5" class="w-20 text-center border-2 border-pink-200 rounded-lg px-2 py-2 text-lg font-bold">
             <span class="font-semibold text-gray-600">minutes</span>
         </div>
+        <div class="mb-4">
+            <input type="text" id="timer-description" placeholder="Description (optional)" class="w-full border-2 border-pink-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
+        </div>
         <div class="flex gap-2">
             <button onclick="startTimer()" class="btn-pink font-semibold py-2 px-6 rounded-lg flex-1">Start</button>
             <button onclick="closeTimerModal()" class="px-4 py-2 rounded-lg border border-pink-200 text-gray-600 hover:bg-gray-50">Cancel</button>
@@ -644,9 +648,13 @@
 
 <!-- Timer Full-Screen Overlay -->
 <div id="timer-overlay" class="hidden fixed inset-0 z-[200] flex flex-col items-center justify-center bg-gradient-to-br from-pink-100 to-pink-200">
+    <p id="timer-description-display" class="text-xl text-gray-600 mb-2 hidden"></p>
     <div id="timer-countdown" class="text-8xl md:text-9xl font-bold" style="color: #EC4899;">5:00</div>
     <p id="timer-label" class="text-xl text-gray-600 mt-2">minutes remaining</p>
-    <button id="timer-cancel-btn" onclick="cancelTimer()" class="mt-8 px-6 py-3 rounded-xl border-2 border-pink-300 text-pink-700 font-semibold hover:bg-pink-100 transition-colors">Cancel</button>
+    <div class="flex gap-3 mt-8">
+        <button id="timer-minimize-btn" onclick="minimizeCurrentTimer()" class="px-6 py-3 rounded-xl border-2 border-pink-300 text-pink-700 font-semibold hover:bg-pink-100 transition-colors">Minimize</button>
+        <button id="timer-cancel-btn" onclick="cancelCurrentTimer()" class="px-6 py-3 rounded-xl border-2 border-pink-300 text-pink-700 font-semibold hover:bg-pink-100 transition-colors">Cancel</button>
+    </div>
 </div>
 
 <!-- Print Container (hidden, used for printing) -->
@@ -1824,6 +1832,7 @@ function restoreFromBackup(e) {
 }
 
 // ========== TIMER ==========
+let activeTimers = [];
 let timerInterval = null;
 
 function showTimerModal() {
@@ -1838,44 +1847,102 @@ function setTimerMinutes(m) {
     document.getElementById('timer-minutes-input').value = m;
 }
 
+function formatTimerDisplay(remainingSeconds) {
+    const m = Math.floor(remainingSeconds / 60);
+    const s = remainingSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function updateAllTimers() {
+    const now = Date.now();
+    const toRemove = [];
+    activeTimers.forEach(t => {
+        const remaining = Math.max(0, Math.ceil((t.endTime - now) / 1000));
+        if (remaining <= 0) {
+            toRemove.push(t.id);
+        }
+    });
+    toRemove.forEach(id => {
+        const finished = activeTimers.find(t => t.id === id);
+        activeTimers = activeTimers.filter(t => t.id !== id);
+        const audio = document.getElementById('alert-sound');
+        if (audio) { audio.currentTime = 0; audio.play(); }
+        showToast(finished?.description ? `Time's up: ${finished.description}` : "Time's up!");
+    });
+
+    const fullScreenTimer = activeTimers.find(t => !t.minimized);
+    const overlay = document.getElementById('timer-overlay');
+    const countdownEl = document.getElementById('timer-countdown');
+    const labelEl = document.getElementById('timer-label');
+
+    if (fullScreenTimer) {
+        const remaining = Math.max(0, Math.ceil((fullScreenTimer.endTime - now) / 1000));
+        overlay.classList.remove('hidden');
+        const descEl = document.getElementById('timer-description-display');
+        if (fullScreenTimer.description) {
+            descEl.textContent = fullScreenTimer.description;
+            descEl.classList.remove('hidden');
+        } else {
+            descEl.classList.add('hidden');
+        }
+        countdownEl.textContent = remaining > 0 ? formatTimerDisplay(remaining) : "Time's up!";
+        labelEl.textContent = remaining > 0 ? (remaining > 60 ? 'minutes remaining' : 'seconds remaining') : '';
+    } else {
+        overlay.classList.add('hidden');
+    }
+
+    const minimizedEl = document.getElementById('minimized-timers');
+    const minimized = activeTimers.filter(t => t.minimized);
+    minimizedEl.innerHTML = minimized.map(t => {
+        const remaining = Math.max(0, Math.ceil((t.endTime - now) / 1000));
+        const desc = t.description ? escapeHtml(t.description) : '';
+        return `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold tabular-nums" style="background: #FBCFE8; color: #831843;">
+            ${desc ? `<span class="max-w-[100px] truncate text-xs font-normal" title="${desc}">${desc}</span>` : ''}
+            <span>${formatTimerDisplay(remaining)}</span>
+            <button type="button" onclick="expandTimer('${t.id}')" class="hover:bg-pink-200 rounded px-1 text-xs" title="Expand to full screen">⛶</button>
+            <button type="button" onclick="cancelTimerById('${t.id}')" class="hover:bg-pink-200 rounded px-1 text-xs" title="Cancel">×</button>
+        </span>`;
+    }).join('');
+
+    if (activeTimers.length === 0 && timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
 function startTimer() {
     const mins = parseInt(document.getElementById('timer-minutes-input').value, 10) || 5;
     if (mins < 1 || mins > 120) { showToast('Enter 1–120 minutes.'); return; }
     closeTimerModal();
-    let remaining = mins * 60;
-    const overlay = document.getElementById('timer-overlay');
-    const countdownEl = document.getElementById('timer-countdown');
-    const labelEl = document.getElementById('timer-label');
-    overlay.classList.remove('hidden');
-    function tick() {
-        const m = Math.floor(remaining / 60);
-        const s = remaining % 60;
-        countdownEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
-        labelEl.textContent = remaining > 60 ? 'minutes remaining' : (remaining > 0 ? 'seconds remaining' : "Time's up!");
-        if (remaining <= 0) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-            countdownEl.textContent = "Time's up!";
-            labelEl.textContent = '';
-            const btn = document.getElementById('timer-cancel-btn');
-            if (btn) { btn.textContent = 'Dismiss'; }
-            const audio = document.getElementById('alert-sound');
-            if (audio) { audio.currentTime = 0; audio.play(); }
-            return;
-        }
-        remaining--;
-    }
-    if (timerInterval) clearInterval(timerInterval);
-    tick();
-    timerInterval = setInterval(tick, 1000);
+    const id = 't' + Date.now();
+    activeTimers.forEach(t => { t.minimized = true; });
+    const desc = document.getElementById('timer-description').value.trim() || null;
+    activeTimers.push({ id, endTime: Date.now() + mins * 60 * 1000, minutes: mins, minimized: false, description: desc });
+    document.getElementById('timer-description').value = '';
+    if (!timerInterval) timerInterval = setInterval(updateAllTimers, 500);
+    updateAllTimers();
 }
 
-function cancelTimer() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = null;
-    document.getElementById('timer-overlay').classList.add('hidden');
-    const btn = document.getElementById('timer-cancel-btn');
-    if (btn) btn.textContent = 'Cancel';
+function minimizeCurrentTimer() {
+    const fullScreen = activeTimers.find(t => !t.minimized);
+    if (fullScreen) fullScreen.minimized = true;
+    updateAllTimers();
+}
+
+function cancelCurrentTimer() {
+    const fullScreen = activeTimers.find(t => !t.minimized);
+    if (fullScreen) activeTimers = activeTimers.filter(t => t.id !== fullScreen.id);
+    updateAllTimers();
+}
+
+function cancelTimerById(id) {
+    activeTimers = activeTimers.filter(t => t.id !== id);
+    updateAllTimers();
+}
+
+function expandTimer(id) {
+    activeTimers.forEach(t => { t.minimized = t.id !== id; });
+    updateAllTimers();
 }
 
 // ========== PRINT STUDENT NOTES ==========
