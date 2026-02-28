@@ -191,6 +191,11 @@
     </a>
 </div>
 
+<!-- DAILY PLANNING REMINDER -->
+<div id="daily-message" class="mb-6 p-4 rounded-xl border-2 animate-fade-in" style="background: linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%); border-color: #EC4899;">
+    <p id="daily-message-text" class="text-gray-800 font-medium">Did you use your planning time at school today? Remember to be selfish and know that time is for you :)</p>
+</div>
+
 <!-- EMAIL & MESSAGE TEMPLATES -->
 <div class="mb-6">
     <details class="rounded-xl group border border-pink-200 overflow-hidden" open>
@@ -2139,12 +2144,34 @@ function checkSchedule() {
 }
 
 
+// ========== DAILY MESSAGE (fetched from URL) ==========
+function loadDailyMessage() {
+    const el = document.getElementById('daily-message-text');
+    if (!el) return;
+    fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.brandowstorage.com/messageforsummer'))
+        .then(res => res.text())
+        .then(text => {
+            let msg = '';
+            try {
+                const parsed = JSON.parse(text);
+                msg = (parsed.message || parsed.text || parsed.content || '').trim();
+            } catch (_) {
+                msg = text.replace(/<[^>]*>/g, '').trim();
+            }
+            if (msg && msg.length > 0 && msg.length < 5000) {
+                el.textContent = msg;
+            }
+        })
+        .catch(() => {});
+}
+
 // ========== INIT ==========
 buildSchedule();
 setInterval(checkSchedule, 30000);
 checkSchedule();
 renderTemplates();
 loadFocus();
+loadDailyMessage();
 renderTodos();
 renderStudents();
 renderGroups();
